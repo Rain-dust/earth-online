@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RUNTIME_STATUSES } from "../../src/core/constants.mjs";
-import { createInitialProfileSave } from "../../src/core/profile.mjs";
+import { calculateInitialExp, createInitialProfileSave } from "../../src/core/profile.mjs";
 
 test("createInitialProfileSave builds old-save import result", () => {
   const save = createInitialProfileSave({
@@ -37,4 +37,29 @@ test("createInitialProfileSave builds old-save import result", () => {
   assert.ok(save.tags.includes("观察者"));
   assert.ok(save.tags.includes("低耗能"));
   assert.ok(save.achievements.some((item) => item.id === "old_save_imported"));
+});
+
+test("calculateInitialExp clamps negative counts to zero", () => {
+  const answers = {
+    ageBand: "adult",
+    educationStage: "undergraduate",
+    currentStage: "working",
+    persistenceRecord: "months",
+    setbackRecovery: "recovered",
+    lifeMethod: "clear_method",
+    socialEnergy: "low",
+    resourceStatus: "skip",
+  };
+  const zeroCounts = calculateInitialExp({
+    ...answers,
+    stableSkillCount: 0,
+    projectCount: 0,
+  });
+  const negativeCounts = calculateInitialExp({
+    ...answers,
+    stableSkillCount: -10,
+    projectCount: -20,
+  });
+
+  assert.ok(negativeCounts >= zeroCounts);
 });

@@ -67,8 +67,8 @@ export function calculateInitialExp(answers = {}) {
     SCORE_TABLES.setbackRecovery[answers.setbackRecovery] || 0,
     SCORE_TABLES.lifeMethod[answers.lifeMethod] || 0,
     SCORE_TABLES.socialEnergy[answers.socialEnergy] || 0,
-    Math.min(Number(answers.stableSkillCount) || 0, 8) * 120,
-    Math.min(Number(answers.projectCount) || 0, 12) * 150,
+    clampCount(answers.stableSkillCount, 8) * 120,
+    clampCount(answers.projectCount, 12) * 150,
     answers.resourceStatus && answers.resourceStatus !== "skip" ? 240 : 0,
   ].reduce((sum, value) => sum + value, 0);
 }
@@ -78,11 +78,11 @@ function createInitialAchievements(answers, now) {
     createAchievement("old_save_imported", "旧存档导入完成", "self_confirmed", now),
   ];
 
-  if ((Number(answers.stableSkillCount) || 0) > 0) {
+  if (clampCount(answers.stableSkillCount, 8) > 0) {
     achievements.push(createAchievement("stable_skill_confirmed", "稳定技能已记录", "self_confirmed", now));
   }
 
-  if ((Number(answers.projectCount) || 0) > 0) {
+  if (clampCount(answers.projectCount, 12) > 0) {
     achievements.push(createAchievement("project_record_confirmed", "项目记录已确认", "self_confirmed", now));
   }
 
@@ -148,4 +148,14 @@ function inferRuntimeTag(socialEnergy) {
 
 function unique(values) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function clampCount(value, cap) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.min(Math.max(0, Math.floor(numericValue)), cap);
 }
