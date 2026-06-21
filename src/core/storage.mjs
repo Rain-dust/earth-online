@@ -47,12 +47,14 @@ export function importSave(json, currentSave = createEmptySave()) {
   return mergeWithDefaults(parsed, currentSave);
 }
 
-export function loadLocalSave(storage = globalThis.localStorage) {
-  if (!storage) {
+export function loadLocalSave(storage) {
+  const resolvedStorage = arguments.length === 0 ? getDefaultStorage() : storage;
+
+  if (!resolvedStorage) {
     return createEmptySave();
   }
 
-  const raw = storage.getItem(STORAGE_KEY);
+  const raw = resolvedStorage.getItem(STORAGE_KEY);
   if (!raw) {
     return createEmptySave();
   }
@@ -60,17 +62,27 @@ export function loadLocalSave(storage = globalThis.localStorage) {
   return importSave(raw);
 }
 
-export function saveLocalSave(save, storage = globalThis.localStorage) {
-  if (!storage) {
+export function saveLocalSave(save, storage) {
+  const resolvedStorage = arguments.length === 1 ? getDefaultStorage() : storage;
+
+  if (!resolvedStorage) {
     return save;
   }
 
-  storage.setItem(STORAGE_KEY, exportSave(save));
+  resolvedStorage.setItem(STORAGE_KEY, exportSave(save));
   return save;
 }
 
 function normalizeSaveForExport(save) {
   return mergeWithDefaults(save, createEmptySave(save.exportedAt));
+}
+
+function getDefaultStorage() {
+  try {
+    return globalThis.localStorage;
+  } catch (error) {
+    return null;
+  }
 }
 
 function mergeWithDefaults(save, defaults) {

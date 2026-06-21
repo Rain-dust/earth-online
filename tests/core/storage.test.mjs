@@ -4,7 +4,9 @@ import {
   createEmptySave,
   exportSave,
   importSave,
+  loadLocalSave,
   SAVE_FORMAT,
+  saveLocalSave,
 } from "../../src/core/storage.mjs";
 
 test("createEmptySave returns versioned readable save shell", () => {
@@ -36,3 +38,41 @@ test("importSave rejects unknown formats without mutating current save", () => {
   );
   assert.equal(current.format, SAVE_FORMAT);
 });
+
+test("loadLocalSave returns empty save when default localStorage is inaccessible", () => {
+  withThrowingLocalStorage(() => {
+    const save = loadLocalSave();
+
+    assert.equal(save.format, SAVE_FORMAT);
+    assert.deepEqual(save.dailyTasks, []);
+  });
+});
+
+test("saveLocalSave returns save when default localStorage is inaccessible", () => {
+  withThrowingLocalStorage(() => {
+    const save = createEmptySave("2026-06-21T20:24:00+08:00");
+
+    assert.equal(saveLocalSave(save), save);
+  });
+});
+
+function withThrowingLocalStorage(callback) {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    get() {
+      throw new Error("localStorage unavailable");
+    },
+  });
+
+  try {
+    callback();
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(globalThis, "localStorage", originalDescriptor);
+    } else {
+      delete globalThis.localStorage;
+    }
+  }
+}
