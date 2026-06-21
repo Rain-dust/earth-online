@@ -10,18 +10,20 @@ export function createApp() {
   const save = loadLocalSave();
   const scene = createEarthScene(dom.stage);
   const state = { mode: "home", save, scene };
+  let focusAttemptId = 0;
 
   async function enter() {
     if (state.mode !== "home") {
       return;
     }
 
+    const attemptId = ++focusAttemptId;
     state.mode = "focusing";
     dom.body.classList.add("is-zooming");
 
     try {
       await scene.focus();
-      if (state.mode !== "focusing") {
+      if (state.mode !== "focusing" || attemptId !== focusAttemptId) {
         return;
       }
 
@@ -31,7 +33,7 @@ export function createApp() {
         showInit();
       }
     } catch (error) {
-      if (state.mode === "focusing") {
+      if (attemptId === focusAttemptId) {
         exitToHome();
       }
     }
@@ -73,6 +75,7 @@ export function createApp() {
   }
 
   function exitToHome() {
+    focusAttemptId += 1;
     state.mode = "home";
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, false);
