@@ -1,0 +1,129 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #020611;
+  color: #eef6ff;
+}
+
+button {
+  border: 1px solid rgba(126, 198, 255, 0.45);
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  background: rgba(10, 24, 42, 0.86);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: rgba(28, 61, 92, 0.92);
+}
+
+.intro {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 62% 44%, rgba(47, 121, 172, 0.22), transparent 34%),
+    linear-gradient(135deg, #020611 0%, #071323 56%, #020611 100%);
+}
+
+#globe-stage {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+}
+
+#globe-stage[data-scene-ready="true"]::before {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(42vmin, 360px);
+  aspect-ratio: 1;
+  content: "";
+  border: 1px solid rgba(126, 198, 255, 0.38);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(126, 198, 255, 0.22), rgba(20, 72, 111, 0.18) 48%, transparent 70%);
+  box-shadow: 0 0 64px rgba(72, 157, 222, 0.2);
+  transform: translate(-50%, -50%);
+}
+
+#home-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-items: center;
+  padding: clamp(1.5rem, 7vw, 5rem);
+  pointer-events: none;
+}
+
+.title-lockup {
+  max-width: 34rem;
+}
+
+.title-lockup h1 {
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.title-lockup p {
+  margin: 1rem 0 0;
+  color: rgba(222, 235, 250, 0.74);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+#system-root {
+  position: absolute;
+  inset: clamp(1rem, 4vw, 3rem);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+#system-root[hidden] {
+  display: none;
+}
+
+.system-panel {
+  width: min(32rem, 100%);
+  border: 1px solid rgba(126, 198, 255, 0.28);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: rgba(5, 13, 24, 0.88);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+}
+
+.system-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.system-panel p {
+  margin: 0 0 1rem;
+  color: rgba(222, 235, 250, 0.76);
+}
+
+.system-panel button + button {
+  margin-left: 0.5rem;
+}
