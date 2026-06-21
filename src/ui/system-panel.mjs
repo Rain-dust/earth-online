@@ -1,5 +1,5 @@
 import { STATUS_LABELS } from "../core/constants.mjs";
-import { applyExp } from "../core/progression.mjs";
+import { applyExp, unlockRuntimeAchievements } from "../core/progression.mjs";
 import { completeTask, generateDailyTasks } from "../core/tasks.mjs";
 
 const DEFAULT_NICKNAME = "未命名玩家";
@@ -59,12 +59,14 @@ export function completePanelTask(save, taskId, completedAt = new Date().toISOSt
   const alreadyRecorded = taskHistory.some((task) => task?.id === result.task.id);
   const nextDailyTasks = dailyTasks.map((task, index) => (index === taskIndex ? result.task : task));
 
-  return {
+  const nextSave = {
     ...save,
     dailyTasks: nextDailyTasks,
     taskHistory: alreadyRecorded ? taskHistory : [...taskHistory, result.task],
     level: alreadyRecorded ? save.level : applyExp(save?.level, result.gainedExp),
   };
+
+  return unlockRuntimeAchievements(nextSave, completedAt);
 }
 
 export function getVisibleTags(save) {

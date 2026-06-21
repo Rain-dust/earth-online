@@ -37,7 +37,57 @@ export function getRarity(seed, min = 3.2, max = 64.8) {
   return Number((min + ratio * (max - min)).toFixed(1));
 }
 
+export function unlockRuntimeAchievements(save, now = new Date().toISOString()) {
+  const taskHistory = asArray(save?.taskHistory);
+  const completedNpcTasks = taskHistory.filter((task) => (
+    task?.category === "npc_noise_reduction" && task?.completed
+  )).length;
+
+  if (completedNpcTasks < 3) {
+    return save;
+  }
+
+  const achievements = asArray(save?.achievements);
+  const titles = asArray(save?.titles);
+  const tags = asArray(save?.tags);
+  const hasNpcFilterAchievement = achievements.some((achievement) => achievement?.id === "npc_filter");
+  const nextAchievements = hasNpcFilterAchievement
+    ? achievements
+    : [
+      ...achievements,
+      {
+        id: "npc_filter",
+        label: "拒绝无效消耗",
+        rarity: getRarity("npc_filter", 4.0, 12.0),
+        rarityLabel: "全服",
+        source: "runtime",
+        unlockedAt: now,
+      },
+    ];
+  const nextTitles = appendUnique(titles, "NPC过滤器");
+  const nextTags = appendUnique(tags, "NPC过滤器");
+
+  if (nextAchievements === achievements && nextTitles === titles && nextTags === tags) {
+    return save;
+  }
+
+  return {
+    ...save,
+    achievements: nextAchievements,
+    titles: nextTitles,
+    tags: nextTags,
+  };
+}
+
 function sanitizeNonNegativeFiniteNumber(value) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+}
+
+function appendUnique(values, value) {
+  return values.includes(value) ? values : [...values, value];
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }

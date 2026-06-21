@@ -93,3 +93,33 @@ test("completePanelTask records task history once and applies EXP", () => {
   assert.equal(unknown.taskHistory.length, 1);
   assert.equal(unknown.level.exp, 20);
 });
+
+test("completePanelTask unlocks NPC filter runtime rewards", () => {
+  const task = {
+    id: "2026-06-21-3-npc",
+    date: "2026-06-21",
+    title: "Tune NPC channel",
+    category: "npc_noise_reduction",
+    categoryLabel: "NPC",
+    exp: 20,
+    order: 3,
+    completed: false,
+  };
+  const save = {
+    level: { value: 1, exp: 0, nextLevelExp: 16, progress: 0 },
+    dailyTasks: [task],
+    taskHistory: [
+      { id: "older-npc-1", category: "npc_noise_reduction", completed: true },
+      { id: "older-npc-2", category: "npc_noise_reduction", completed: true },
+    ],
+    achievements: [],
+    titles: [],
+    tags: [],
+  };
+
+  const next = completePanelTask(save, task.id, "2026-06-21T12:00:00.000Z");
+
+  assert.ok(next.achievements.some((item) => item.id === "npc_filter"));
+  assert.ok(next.titles.includes("NPC过滤器"));
+  assert.ok(next.tags.includes("NPC过滤器"));
+});
