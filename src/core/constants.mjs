@@ -45,3 +45,68 @@ export const DEFAULT_TAGS = Object.freeze([
   "技术流",
   "NPC过滤器",
 ]);
+
+export const DEFAULT_TASK_POOL = Object.freeze([
+  Object.freeze({
+    id: "body-low-intensity",
+    title: "Execute low-intensity body maintenance",
+    category: TASK_CATEGORIES.BODY,
+    exp: 12,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.HIGH_LOAD,
+      RUNTIME_STATUSES.LOW_ENERGY,
+      RUNTIME_STATUSES.MAINTENANCE,
+    ]),
+  }),
+  Object.freeze({
+    id: "npc-skip-argument",
+    title: "Skip one optional NPC argument",
+    category: TASK_CATEGORIES.NPC,
+    exp: 14,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.HIGH_LOAD,
+      RUNTIME_STATUSES.LOW_ENERGY,
+    ]),
+  }),
+  Object.freeze({
+    id: "environment-clear-one",
+    title: "Clear one visible environment item",
+    category: TASK_CATEGORIES.ENVIRONMENT,
+    exp: 10,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.HIGH_LOAD,
+      RUNTIME_STATUSES.MAINTENANCE,
+    ]),
+  }),
+  Object.freeze({
+    id: "input-reading",
+    title: "Read one bounded input source",
+    category: TASK_CATEGORIES.INPUT,
+    exp: 16,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.STABLE,
+      RUNTIME_STATUSES.MAIN_QUEST_PUSH,
+    ]),
+  }),
+  Object.freeze({
+    id: "output-small-artifact",
+    title: "Export one small artifact",
+    category: TASK_CATEGORIES.OUTPUT,
+    exp: 18,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.STABLE,
+      RUNTIME_STATUSES.MAIN_QUEST_PUSH,
+    ]),
+  }),
+  Object.freeze({
+    id: "route-review",
+    title: "Review route and choose next waypoint",
+    category: TASK_CATEGORIES.INPUT,
+    exp: 15,
+    statuses: Object.freeze([
+      RUNTIME_STATUSES.LOST_ROUTE,
+      RUNTIME_STATUSES.LOW_ENERGY,
+      RUNTIME_STATUSES.MAIN_QUEST_PUSH,
+    ]),
+  }),
+]);
