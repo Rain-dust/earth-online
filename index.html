@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>地球 Online</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three",
+          "three/": "https://esm.sh/three/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app" aria-label="地球 Online">
+      <section class="intro" aria-label="Earth Online intro">
+        <div id="globe-stage"></div>
+        <div id="home-overlay"></div>
+        <div id="system-root" hidden></div>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
