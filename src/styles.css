@@ -144,27 +144,257 @@ body.is-zooming #home-overlay {
 }
 
 .system-panel {
-  width: min(32rem, 100%);
-  border: 1px solid rgba(126, 198, 255, 0.28);
+  width: min(68rem, 100%);
+  border: 1px solid rgba(126, 198, 255, 0.32);
   border-radius: 8px;
-  padding: 1.25rem;
-  background: rgba(5, 13, 24, 0.88);
-  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+  padding: clamp(1rem, 3vw, 1.65rem);
+  background:
+    linear-gradient(rgba(111, 204, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(145deg, rgba(3, 10, 18, 0.95), rgba(4, 24, 36, 0.88));
+  background-size: 100% 12px, auto;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.56),
+    inset 0 1px 0 rgba(214, 244, 255, 0.08);
 }
 
-.system-panel h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.25rem;
+.panel-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(126, 198, 255, 0.16);
+  padding-bottom: 1rem;
+}
+
+.panel-header > div {
+  min-width: 0;
+}
+
+.panel-kicker,
+.panel-status span,
+.daily-tasks header span,
+.task-copy span {
+  color: rgba(125, 207, 255, 0.82);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.74rem;
   letter-spacing: 0;
 }
 
-.system-panel p {
-  margin: 0 0 1rem;
-  color: rgba(222, 235, 250, 0.76);
+.panel-header h2 {
+  margin: 0.35rem 0 0.25rem;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
-.system-panel button + button {
-  margin-left: 0.5rem;
+.panel-header p {
+  margin: 0;
+  color: rgba(206, 226, 241, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.panel-exit {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  padding: 0;
+  background: rgba(0, 8, 14, 0.58);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.panel-status {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(6rem, 0.7fr) minmax(16rem, 2fr);
+  gap: 1px;
+  margin: 1rem 0;
+  border: 1px solid rgba(126, 198, 255, 0.16);
+  background: rgba(126, 198, 255, 0.12);
+}
+
+.panel-status > div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.85rem;
+  background: rgba(2, 12, 20, 0.64);
+}
+
+.panel-status strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: rgba(237, 250, 255, 0.94);
+  font-size: 1.05rem;
+}
+
+.level-progress {
+  align-content: center;
+}
+
+.level-progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.level-progress meter {
+  width: 100%;
+  height: 0.55rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(126, 198, 255, 0.13);
+}
+
+.level-progress meter::-webkit-meter-bar {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(126, 198, 255, 0.13);
+}
+
+.level-progress meter::-webkit-meter-optimum-value {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #65d8ff, #b6f0ff);
+}
+
+.level-progress meter::-moz-meter-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #65d8ff, #b6f0ff);
+}
+
+.tag-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1.15rem;
+}
+
+.tag-strip span {
+  max-width: 100%;
+  border: 1px solid rgba(126, 198, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.32rem 0.58rem;
+  background: rgba(2, 12, 20, 0.46);
+  color: rgba(222, 235, 250, 0.78);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.daily-tasks {
+  border-top: 1px solid rgba(126, 198, 255, 0.16);
+  padding-top: 1rem;
+}
+
+.daily-tasks header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+}
+
+.daily-tasks header strong {
+  color: rgba(206, 226, 241, 0.72);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.task-list {
+  display: grid;
+  gap: 1px;
+  border: 1px solid rgba(126, 198, 255, 0.14);
+  background: rgba(126, 198, 255, 0.1);
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.75rem;
+  background: rgba(2, 12, 20, 0.7);
+}
+
+.task-row.is-complete {
+  color: rgba(222, 235, 250, 0.52);
+}
+
+.task-order {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid rgba(126, 198, 255, 0.2);
+  color: rgba(125, 207, 255, 0.86);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.task-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.task-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.task-exp {
+  color: rgba(178, 236, 255, 0.9);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.task-row button {
+  min-width: 5rem;
+  white-space: nowrap;
+}
+
+.task-row button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  border-top: 1px solid rgba(126, 198, 255, 0.14);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.import-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-height: 2.6rem;
+  border: 1px solid rgba(126, 198, 255, 0.45);
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  background: rgba(10, 24, 42, 0.86);
+  color: inherit;
+  cursor: pointer;
+}
+
+.import-button:hover {
+  background: rgba(28, 61, 92, 0.92);
+}
+
+.import-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .terminal-shell {
@@ -327,5 +557,40 @@ body.is-zooming #home-overlay {
 
   .terminal-footer button {
     flex: 1;
+  }
+
+  .panel-header,
+  .daily-tasks header,
+  .panel-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-status {
+    grid-template-columns: 1fr;
+  }
+
+  .level-progress > div {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .task-row {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+
+  .task-exp {
+    grid-column: 2;
+  }
+
+  .task-row button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .panel-actions button,
+  .import-button {
+    width: 100%;
   }
 }
