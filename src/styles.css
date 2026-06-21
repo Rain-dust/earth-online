@@ -77,6 +77,12 @@ body.is-zooming #home-overlay {
   transform: translateX(-24px);
 }
 
+.home-overlay.is-hidden {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateX(-24px);
+}
+
 .player-count {
   position: absolute;
   right: clamp(20px, 5vw, 76px);

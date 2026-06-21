@@ -19,6 +19,7 @@ export function createApp() {
 
     const attemptId = ++focusAttemptId;
     state.mode = "focusing";
+    dom.homeOverlay.classList.add("is-hidden");
     dom.body.classList.add("is-zooming");
 
     try {
@@ -79,6 +80,7 @@ export function createApp() {
     state.mode = "home";
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, false);
+    dom.homeOverlay.classList.remove("is-hidden");
     dom.body.classList.remove("is-zooming");
     scene.home();
   }
