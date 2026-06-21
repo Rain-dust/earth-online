@@ -51,17 +51,10 @@ button:hover {
   cursor: crosshair;
 }
 
-#globe-stage[data-scene-ready="true"]::before {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  width: min(42vmin, 360px);
-  aspect-ratio: 1;
-  content: "";
-  border: 1px solid rgba(126, 198, 255, 0.38);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, rgba(126, 198, 255, 0.22), rgba(20, 72, 111, 0.18) 48%, transparent 70%);
-  box-shadow: 0 0 64px rgba(72, 157, 222, 0.2);
-  transform: translate(-50%, -50%);
+#globe-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 #home-overlay {
@@ -72,6 +65,12 @@ button:hover {
   align-items: center;
   padding: clamp(1.5rem, 7vw, 5rem);
   pointer-events: none;
+}
+
+body.is-zooming #home-overlay {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateX(-24px);
 }
 
 .title-lockup {

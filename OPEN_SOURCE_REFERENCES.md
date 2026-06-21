@@ -16,3 +16,12 @@ This prototype intentionally starts from established open-source globe work inst
 
 - World Bank API, WLD `SP.POP.TOTL`, used as the first MVP population baseline. The UI presents this as an estimate, not exact live census data.
   https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL?format=json
+
+## Globe Visual Implementation
+
+- `three-globe` clouds example, used for cloud layer structure and animation pattern.
+  https://github.com/vasturiano/three-globe/tree/master/example/clouds
+- `three-globe` custom globe material and day/night concepts, used as reference for brighter material and city-light direction.
+  https://github.com/vasturiano/three-globe
+- `globe.gl` arcs/rings/satellites examples, used as reference for restrained orbit and satellite-chain visuals.
+  https://github.com/vasturiano/globe.gl
