@@ -12,6 +12,20 @@ export function createApp() {
   const state = { mode: "home", save, scene };
   let focusAttemptId = 0;
 
+  function hideHomeOverlay() {
+    dom.homeOverlay.classList.add("is-hidden");
+    dom.homeOverlay.style.opacity = "0";
+    dom.homeOverlay.style.filter = "blur(8px)";
+    dom.homeOverlay.style.transform = "translateX(-24px)";
+  }
+
+  function showHomeOverlay() {
+    dom.homeOverlay.classList.remove("is-hidden");
+    dom.homeOverlay.style.opacity = "";
+    dom.homeOverlay.style.filter = "";
+    dom.homeOverlay.style.transform = "";
+  }
+
   async function enter() {
     if (state.mode !== "home") {
       return;
@@ -19,7 +33,7 @@ export function createApp() {
 
     const attemptId = ++focusAttemptId;
     state.mode = "focusing";
-    dom.homeOverlay.classList.add("is-hidden");
+    hideHomeOverlay();
     dom.body.classList.add("is-zooming");
 
     try {
@@ -80,7 +94,7 @@ export function createApp() {
     state.mode = "home";
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, false);
-    dom.homeOverlay.classList.remove("is-hidden");
+    showHomeOverlay();
     dom.body.classList.remove("is-zooming");
     scene.home();
   }
