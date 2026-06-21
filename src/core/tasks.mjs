@@ -29,6 +29,7 @@ export function generateDailyTasks({
 } = {}) {
   const safeStatus = status || RUNTIME_STATUSES.STABLE;
   const count = TASK_COUNTS_BY_STATUS[safeStatus] || TASK_COUNTS_BY_STATUS[RUNTIME_STATUSES.STABLE];
+  const safeCustomTaskPool = Array.isArray(customTaskPool) ? customTaskPool : [];
   const tasks = [];
 
   if (MAIN_QUEST_STATUSES.has(safeStatus) && mainQuest?.title) {
@@ -36,7 +37,7 @@ export function generateDailyTasks({
   }
 
   addTasks(tasks, getStatusWeightedTasks(safeStatus), count, "system");
-  addTasks(tasks, customTaskPool, count, "custom");
+  addTasks(tasks, safeCustomTaskPool, count, "custom");
   addTasks(tasks, DEFAULT_TASK_POOL, count, "fallback");
 
   return tasks.slice(0, count).map((task, index) => normalizeGeneratedTask(task, {
@@ -87,7 +88,7 @@ function addTasks(target, candidates, count, source) {
       return;
     }
 
-    if (!candidate || hasTask(target, candidate.id)) {
+    if (!isValidCandidate(candidate, source) || hasTask(target, candidate.id)) {
       continue;
     }
 
@@ -99,7 +100,7 @@ function addTasks(target, candidates, count, source) {
 }
 
 function normalizeGeneratedTask(task, { date, order, source }) {
-  const category = task.category || TASK_CATEGORIES.OUTPUT;
+  const category = getKnownCategory(task.category);
 
   return {
     id: `${date || "undated"}-${order}-${task.id || slugify(task.title)}`,
@@ -117,6 +118,22 @@ function normalizeGeneratedTask(task, { date, order, source }) {
 
 function hasTask(tasks, id) {
   return id && tasks.some((task) => task.id === id);
+}
+
+function isValidCandidate(candidate, source) {
+  if (!candidate) {
+    return false;
+  }
+
+  if (source === "custom") {
+    return typeof candidate.title === "string" && candidate.title.trim().length > 0;
+  }
+
+  return true;
+}
+
+function getKnownCategory(category) {
+  return Object.values(TASK_CATEGORIES).includes(category) ? category : TASK_CATEGORIES.OUTPUT;
 }
 
 function sanitizeExp(exp) {
