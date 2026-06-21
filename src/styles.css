@@ -553,6 +553,32 @@ body.is-zooming #home-overlay {
     overflow: auto;
   }
 
+  .home-overlay {
+    align-items: end;
+    padding: 0 22px 38px;
+  }
+
+  .title-lockup {
+    max-width: none;
+    transform: none;
+  }
+
+  .title-lockup h1 {
+    font-size: clamp(3rem, 17vw, 5.4rem);
+  }
+
+  .title-lockup p {
+    max-width: 31rem;
+    font-size: 0.95rem;
+  }
+
+  .player-count {
+    right: 22px;
+    bottom: clamp(11.25rem, 30svh, 16rem);
+    left: 22px;
+    text-align: left;
+  }
+
   #system-root {
     align-items: start;
   }
