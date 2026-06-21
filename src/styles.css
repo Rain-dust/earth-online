@@ -57,24 +57,52 @@ button:hover {
   height: 100%;
 }
 
-#home-overlay {
+.home-overlay {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   display: grid;
   align-items: center;
   padding: clamp(1.5rem, 7vw, 5rem);
   pointer-events: none;
   transition:
-    opacity 420ms ease,
-    filter 420ms ease,
-    transform 420ms ease;
+    opacity 700ms ease,
+    filter 900ms ease,
+    transform 900ms ease;
 }
 
 body.is-zooming #home-overlay {
   opacity: 0;
   filter: blur(8px);
   transform: translateX(-24px);
+}
+
+.player-count {
+  position: absolute;
+  right: clamp(20px, 5vw, 76px);
+  bottom: clamp(24px, 6vw, 72px);
+  display: grid;
+  gap: 6px;
+  color: rgba(230, 246, 255, 0.86);
+  text-align: right;
+  text-shadow: 0 12px 36px rgba(0, 0, 0, 0.72);
+}
+
+.player-count span {
+  color: rgba(125, 207, 255, 0.84);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+}
+
+.player-count strong {
+  font-size: clamp(1.5rem, 3.2vw, 3.7rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.player-count small {
+  color: rgba(199, 218, 235, 0.62);
 }
 
 .title-lockup {
