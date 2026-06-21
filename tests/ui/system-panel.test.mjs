@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completePanelTask, getDailyTasksForSave } from "../../src/ui/system-panel.mjs";
+import {
+  completePanelTask,
+  getDailyTasksForSave,
+  getTaskActionState,
+} from "../../src/ui/system-panel.mjs";
 
 test("getDailyTasksForSave reuses today's tasks without changing save", () => {
   const today = "2026-06-21";
@@ -23,6 +27,41 @@ test("getDailyTasksForSave reuses today's tasks without changing save", () => {
   assert.equal(result.changed, false);
   assert.equal(result.save, save);
   assert.deepEqual(result.tasks, [existingTask]);
+});
+
+test("getDailyTasksForSave can preview generated tasks without requesting persistence", () => {
+  const today = "2026-06-21";
+  const save = {
+    currentStatus: "stable_operation",
+    dailyTasks: [],
+  };
+
+  const result = getDailyTasksForSave(save, today, { persistGeneratedTasks: false });
+
+  assert.equal(result.changed, false);
+  assert.notEqual(result.save, save);
+  assert.equal(save.dailyTasks.length, 0);
+  assert.ok(result.tasks.length > 0);
+  assert.equal(result.generated, true);
+  assert.deepEqual(result.save.dailyTasks, result.tasks);
+});
+
+test("getTaskActionState disables generated preview tasks", () => {
+  const pendingTask = { completed: false };
+  const completedTask = { completed: true };
+
+  assert.deepEqual(
+    getTaskActionState(pendingTask, { allowCompletion: false }),
+    { disabled: true, label: "预览" },
+  );
+  assert.deepEqual(
+    getTaskActionState(pendingTask, { allowCompletion: true }),
+    { disabled: false, label: "完成" },
+  );
+  assert.deepEqual(
+    getTaskActionState(completedTask, { allowCompletion: false }),
+    { disabled: true, label: "已完成" },
+  );
 });
 
 test("completePanelTask records task history once and applies EXP", () => {

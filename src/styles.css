@@ -365,11 +365,21 @@ body.is-zooming #home-overlay {
 
 .panel-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.65rem;
   border-top: 1px solid rgba(126, 198, 255, 0.14);
   margin-top: 1rem;
   padding-top: 1rem;
+}
+
+.system-message {
+  min-width: 0;
+  margin: 0 auto 0 0;
+  color: rgba(255, 196, 126, 0.92);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .import-button {
@@ -591,6 +601,10 @@ body.is-zooming #home-overlay {
 
   .panel-actions button,
   .import-button {
+    width: 100%;
+  }
+
+  .system-message {
     width: 100%;
   }
 }

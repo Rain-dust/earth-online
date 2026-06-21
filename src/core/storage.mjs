@@ -31,6 +31,36 @@ export function exportSave(save) {
   return `${JSON.stringify(normalizeSaveForExport(save), null, 2)}\n`;
 }
 
+export function downloadSaveJson(save, documentRef = document) {
+  const exportedSave = {
+    ...save,
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([exportSave(exportedSave)], { type: "application/json" });
+  const urlApi = documentRef?.defaultView?.URL || globalThis.URL;
+  const objectUrl = urlApi.createObjectURL(blob);
+  const anchor = documentRef.createElement("a");
+
+  anchor.href = objectUrl;
+  anchor.download = `earth-online-save-${exportedSave.exportedAt.slice(0, 10)}.json`;
+
+  try {
+    documentRef.body?.appendChild?.(anchor);
+    anchor.click();
+  } finally {
+    anchor.remove?.();
+    urlApi.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function readSaveFile(file) {
+  if (!file) {
+    throw new Error("No save file selected");
+  }
+
+  return file.text();
+}
+
 export function importSave(json, currentSave = createEmptySave()) {
   let parsed;
 

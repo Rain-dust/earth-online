@@ -6,7 +6,7 @@ const DEFAULT_NICKNAME = "未命名玩家";
 const DEFAULT_TITLE = "地球 Online 观察员";
 const PANEL_TAG_LIMIT = 12;
 
-export function getDailyTasksForSave(save, today) {
+export function getDailyTasksForSave(save, today, { persistGeneratedTasks = true } = {}) {
   const dailyTasks = Array.isArray(save?.dailyTasks) ? save.dailyTasks : [];
   const todaysTasks = dailyTasks.filter((task) => task?.date === today);
 
@@ -15,6 +15,7 @@ export function getDailyTasksForSave(save, today) {
       save,
       tasks: todaysTasks,
       changed: false,
+      generated: false,
     };
   }
 
@@ -35,7 +36,8 @@ export function getDailyTasksForSave(save, today) {
   return {
     save: nextSave,
     tasks,
-    changed: true,
+    changed: persistGeneratedTasks,
+    generated: true,
   };
 }
 
@@ -88,13 +90,32 @@ export function getVisibleTags(save) {
   return tags.slice(0, PANEL_TAG_LIMIT);
 }
 
-export function renderSystemPanel(root, { save, onChange, onExit }) {
+export function getTaskActionState(task, { allowCompletion = true } = {}) {
+  if (task?.completed) {
+    return { disabled: true, label: "已完成" };
+  }
+
+  if (!allowCompletion) {
+    return { disabled: true, label: "预览" };
+  }
+
+  return { disabled: false, label: "完成" };
+}
+
+export function renderSystemPanel(root, {
+  save,
+  onChange,
+  onExit,
+  persistGeneratedTasks = true,
+}) {
+  const systemMessage = root.dataset.systemMessage || "";
   const today = new Date().toISOString().slice(0, 10);
-  const daily = getDailyTasksForSave(save, today);
+  const daily = getDailyTasksForSave(save, today, { persistGeneratedTasks });
   const activeSave = daily.save;
   const tags = getVisibleTags(activeSave);
   const level = activeSave?.level || {};
   const progress = getProgressPercent(level);
+  const allowTaskCompletion = persistGeneratedTasks || !daily.generated;
 
   root.replaceChildren();
 
@@ -139,11 +160,12 @@ export function renderSystemPanel(root, { save, onChange, onExit }) {
         <strong>${escapeHtml(today)}</strong>
       </header>
       <div class="task-list">
-        ${daily.tasks.map(renderTaskRow).join("")}
+        ${daily.tasks.map((task) => renderTaskRow(task, { allowTaskCompletion })).join("")}
       </div>
     </section>
 
     <footer class="panel-actions">
+      ${systemMessage ? `<p class="system-message" role="status">${escapeHtml(systemMessage)}</p>` : ""}
       <button type="button" data-action="export">导出存档</button>
       <label class="import-button">
         <span>导入存档</span>
@@ -169,14 +191,16 @@ export function renderSystemPanel(root, { save, onChange, onExit }) {
     }
   });
 
-  for (const button of panel.querySelectorAll("[data-task-id]")) {
-    button.addEventListener("click", () => {
-      const nextSave = completePanelTask(activeSave, button.dataset.taskId);
+  if (allowTaskCompletion) {
+    for (const button of panel.querySelectorAll("[data-task-id]")) {
+      button.addEventListener("click", () => {
+        const nextSave = completePanelTask(activeSave, button.dataset.taskId);
 
-      if (nextSave !== activeSave) {
-        onChange?.(nextSave);
-      }
-    });
+        if (nextSave !== activeSave) {
+          onChange?.(nextSave);
+        }
+      });
+    }
   }
 
   root.append(panel);
@@ -186,19 +210,19 @@ export function renderSystemPanel(root, { save, onChange, onExit }) {
   }
 }
 
-function renderTaskRow(task) {
-  const completed = Boolean(task?.completed);
+function renderTaskRow(task, { allowTaskCompletion = true } = {}) {
+  const action = getTaskActionState(task, { allowCompletion: allowTaskCompletion });
 
   return `
-    <article class="task-row ${completed ? "is-complete" : ""}">
+    <article class="task-row ${action.disabled ? "is-complete" : ""}">
       <span class="task-order">${escapeHtml(task?.order || "-")}</span>
       <div class="task-copy">
         <span>${escapeHtml(task?.categoryLabel || task?.category || "任务")}</span>
         <strong>${escapeHtml(task?.title || "Execute one bounded system action")}</strong>
       </div>
       <span class="task-exp">+${escapeHtml(task?.exp || 0)} EXP</span>
-      <button type="button" data-task-id="${escapeHtml(task?.id || "")}" ${completed ? "disabled" : ""}>
-        ${completed ? "已完成" : "完成"}
+      <button type="button" data-task-id="${escapeHtml(task?.id || "")}" ${action.disabled ? "disabled" : ""}>
+        ${escapeHtml(action.label)}
       </button>
     </article>
   `;

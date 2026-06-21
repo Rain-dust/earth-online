@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import * as storage from "../../src/core/storage.mjs";
 import {
   createEmptySave,
   exportSave,
@@ -79,6 +80,74 @@ test("saveLocalSave uses default localStorage when storage is explicitly undefin
   });
 
   assert.equal(JSON.parse(storage.getItem(STORAGE_KEY)).exportedAt, save.exportedAt);
+});
+
+test("downloadSaveJson creates a dated JSON download and revokes the object URL", async () => {
+  const save = createEmptySave("2026-06-21T20:24:00+08:00");
+  let clicked = false;
+  let createdBlob = null;
+  let revokedUrl = null;
+  const anchor = {
+    download: "",
+    href: "",
+    click() {
+      clicked = true;
+    },
+    remove() {},
+  };
+  const documentRef = {
+    defaultView: {
+      URL: {
+        createObjectURL(blob) {
+          createdBlob = blob;
+          return "blob:earth-online-save";
+        },
+        revokeObjectURL(url) {
+          revokedUrl = url;
+        },
+      },
+    },
+    createElement(tagName) {
+      assert.equal(tagName, "a");
+      return anchor;
+    },
+    body: {
+      appendChild(element) {
+        assert.equal(element, anchor);
+      },
+    },
+  };
+
+  storage.downloadSaveJson(save, documentRef);
+
+  assert.equal(clicked, true);
+  assert.match(anchor.download, /^earth-online-save-\d{4}-\d{2}-\d{2}\.json$/);
+  assert.equal(anchor.href, "blob:earth-online-save");
+  assert.equal(revokedUrl, "blob:earth-online-save");
+
+  const exported = JSON.parse(await createdBlob.text());
+  assert.equal(exported.format, SAVE_FORMAT);
+  assert.match(exported.exportedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("readSaveFile rejects empty selections and returns selected file text", async () => {
+  await assert.rejects(
+    () => storage.readSaveFile(null),
+    /No save file selected/,
+  );
+
+  await assert.rejects(
+    () => storage.readSaveFile(undefined),
+    /No save file selected/,
+  );
+
+  const text = await storage.readSaveFile({
+    text() {
+      return Promise.resolve("{\"format\":\"earth-online-save-v1\"}");
+    },
+  });
+
+  assert.equal(text, "{\"format\":\"earth-online-save-v1\"}");
 });
 
 function withThrowingLocalStorage(callback) {

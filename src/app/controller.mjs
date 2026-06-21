@@ -1,4 +1,10 @@
-import { loadLocalSave, saveLocalSave } from "../core/storage.mjs";
+import {
+  downloadSaveJson,
+  importSave,
+  loadLocalSave,
+  readSaveFile,
+  saveLocalSave,
+} from "../core/storage.mjs";
 import { createEarthScene } from "../scene/earth-scene.mjs";
 import { renderHome } from "../ui/home.mjs";
 import { renderInitTerminal } from "../ui/init-terminal.mjs";
@@ -67,7 +73,7 @@ export function createApp() {
     });
   }
 
-  function showPanel() {
+  function showPanel({ persistGeneratedTasks = true } = {}) {
     state.mode = "panel";
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
@@ -77,15 +83,16 @@ export function createApp() {
       renderPanel(handleChange);
     };
 
-    renderPanel(handleChange);
+    renderPanel(handleChange, { persistGeneratedTasks });
   }
 
-  function renderPanel(handleChange) {
+  function renderPanel(handleChange, { persistGeneratedTasks = true } = {}) {
     dom.systemRoot.replaceChildren();
     renderSystemPanel(dom.systemRoot, {
       save: state.save,
       onChange: handleChange,
       onExit: exitToHome,
+      persistGeneratedTasks,
     });
   }
 
@@ -103,6 +110,22 @@ export function createApp() {
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       exitToHome();
+    }
+  });
+  dom.systemRoot.addEventListener("earth-online-export", () => {
+    downloadSaveJson(state.save);
+  });
+  dom.systemRoot.addEventListener("earth-online-import", async (event) => {
+    try {
+      const text = await readSaveFile(event.detail);
+      const nextSave = importSave(text, state.save);
+
+      delete dom.systemRoot.dataset.systemMessage;
+      state.save = saveLocalSave(nextSave);
+      showPanel();
+    } catch (error) {
+      dom.systemRoot.dataset.systemMessage = error?.message || "Save import failed";
+      showPanel({ persistGeneratedTasks: false });
     }
   });
 
