@@ -65,6 +65,10 @@ button:hover {
   align-items: center;
   padding: clamp(1.5rem, 7vw, 5rem);
   pointer-events: none;
+  transition:
+    opacity 420ms ease,
+    filter 420ms ease,
+    transform 420ms ease;
 }
 
 body.is-zooming #home-overlay {
