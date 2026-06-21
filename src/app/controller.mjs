@@ -21,15 +21,19 @@ export function createApp() {
 
     try {
       await scene.focus();
+      if (state.mode !== "focusing") {
+        return;
+      }
+
       if (state.save.profile) {
         showPanel();
       } else {
         showInit();
       }
     } catch (error) {
-      state.mode = "home";
-      dom.body.classList.remove("is-zooming");
-      scene.home();
+      if (state.mode === "focusing") {
+        exitToHome();
+      }
     }
   }
 
