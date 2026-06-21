@@ -48,7 +48,7 @@ export function importSave(json, currentSave = createEmptySave()) {
 }
 
 export function loadLocalSave(storage) {
-  const resolvedStorage = arguments.length === 0 ? getDefaultStorage() : storage;
+  const resolvedStorage = storage === undefined ? getDefaultStorage() : storage;
 
   if (!resolvedStorage) {
     return createEmptySave();
@@ -63,7 +63,7 @@ export function loadLocalSave(storage) {
 }
 
 export function saveLocalSave(save, storage) {
-  const resolvedStorage = arguments.length === 1 ? getDefaultStorage() : storage;
+  const resolvedStorage = storage === undefined ? getDefaultStorage() : storage;
 
   if (!resolvedStorage) {
     return save;

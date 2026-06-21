@@ -7,6 +7,7 @@ import {
   loadLocalSave,
   SAVE_FORMAT,
   saveLocalSave,
+  STORAGE_KEY,
 } from "../../src/core/storage.mjs";
 
 test("createEmptySave returns versioned readable save shell", () => {
@@ -56,13 +57,47 @@ test("saveLocalSave returns save when default localStorage is inaccessible", () 
   });
 });
 
+test("loadLocalSave uses default localStorage when storage is explicitly undefined", () => {
+  const expected = createEmptySave("2026-06-21T20:24:00+08:00");
+  const storage = createMemoryStorage();
+  storage.setItem(STORAGE_KEY, exportSave(expected));
+
+  withLocalStorage(storage, () => {
+    const save = loadLocalSave(undefined);
+
+    assert.equal(save.exportedAt, expected.exportedAt);
+    assert.equal(save.format, SAVE_FORMAT);
+  });
+});
+
+test("saveLocalSave uses default localStorage when storage is explicitly undefined", () => {
+  const save = createEmptySave("2026-06-21T20:24:00+08:00");
+  const storage = createMemoryStorage();
+
+  withLocalStorage(storage, () => {
+    assert.equal(saveLocalSave(save, undefined), save);
+  });
+
+  assert.equal(JSON.parse(storage.getItem(STORAGE_KEY)).exportedAt, save.exportedAt);
+});
+
 function withThrowingLocalStorage(callback) {
+  withLocalStorageGetter(() => {
+    throw new Error("localStorage unavailable");
+  }, callback);
+}
+
+function withLocalStorage(storage, callback) {
+  withLocalStorageGetter(() => storage, callback);
+}
+
+function withLocalStorageGetter(getStorage, callback) {
   const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
 
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
     get() {
-      throw new Error("localStorage unavailable");
+      return getStorage();
     },
   });
 
@@ -75,4 +110,17 @@ function withThrowingLocalStorage(callback) {
       delete globalThis.localStorage;
     }
   }
+}
+
+function createMemoryStorage() {
+  const items = new Map();
+
+  return {
+    getItem(key) {
+      return items.has(key) ? items.get(key) : null;
+    },
+    setItem(key, value) {
+      items.set(key, value);
+    },
+  };
 }
