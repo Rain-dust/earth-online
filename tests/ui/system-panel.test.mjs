@@ -29,6 +29,32 @@ test("getDailyTasksForSave reuses today's tasks without changing save", () => {
   assert.deepEqual(result.tasks, [existingTask]);
 });
 
+test("getDailyTasksForSave localizes legacy English tasks in today's save", () => {
+  const today = "2026-06-21";
+  const save = {
+    currentStatus: "stable_operation",
+    dailyTasks: [
+      {
+        id: "2026-06-21-1-input-reading",
+        date: today,
+        title: "Read one bounded input source",
+        category: "cognitive_input",
+        categoryLabel: "Cognitive input",
+        exp: 16,
+        order: 1,
+        completed: false,
+      },
+    ],
+  };
+
+  const result = getDailyTasksForSave(save, today);
+
+  assert.equal(result.changed, true);
+  assert.notEqual(result.save, save);
+  assert.equal(result.tasks[0].title, "\u9605\u8bfb\u4e00\u4efd\u6709\u8fb9\u754c\u7684\u4fe1\u606f\u6e90");
+  assert.equal(result.save.dailyTasks[0].title, "\u9605\u8bfb\u4e00\u4efd\u6709\u8fb9\u754c\u7684\u4fe1\u606f\u6e90");
+});
+
 test("getDailyTasksForSave can preview generated tasks without requesting persistence", () => {
   const today = "2026-06-21";
   const save = {

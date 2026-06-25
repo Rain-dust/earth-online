@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { RUNTIME_STATUSES, TASK_CATEGORIES } from "../../src/core/constants.mjs";
-import { completeTask, expireTask, generateDailyTasks } from "../../src/core/tasks.mjs";
+import { completeTask, expireTask, generateDailyTasks, localizeTaskCopy } from "../../src/core/tasks.mjs";
 
 test("generateDailyTasks returns three high load tasks including NPC category", () => {
   const tasks = generateDailyTasks({
@@ -32,6 +32,30 @@ test("generateDailyTasks includes main quest and custom source during stable ope
   assert.equal(tasks.length, 5);
   assert.ok(tasks.some((task) => task.title.includes("\u5730\u7403 Online")));
   assert.ok(tasks.some((task) => task.source === "custom"));
+});
+
+test("generateDailyTasks uses Chinese default task titles", () => {
+  const tasks = generateDailyTasks({
+    date: "2026-06-21",
+    status: RUNTIME_STATUSES.STABLE,
+    mainQuest: { title: "\u5730\u7403 Online" },
+  });
+
+  assert.ok(tasks.some((task) => task.title === "\u9605\u8bfb\u4e00\u4efd\u6709\u8fb9\u754c\u7684\u4fe1\u606f\u6e90"));
+  assert.ok(tasks.some((task) => task.title === "\u4ea7\u51fa\u4e00\u4e2a\u5c0f\u578b\u4f5c\u54c1"));
+  assert.equal(tasks.some((task) => task.title === "Read one bounded input source"), false);
+});
+
+test("localizeTaskCopy translates legacy English system task titles", () => {
+  const task = localizeTaskCopy({
+    id: "2026-06-21-2-input-reading",
+    title: "Read one bounded input source",
+    category: TASK_CATEGORIES.INPUT,
+    categoryLabel: "Cognitive input",
+  });
+
+  assert.equal(task.title, "\u9605\u8bfb\u4e00\u4efd\u6709\u8fb9\u754c\u7684\u4fe1\u606f\u6e90");
+  assert.equal(task.categoryLabel, "\u8ba4\u77e5\u8f93\u5165");
 });
 
 test("completeTask marks task completed and returns gained exp", () => {

@@ -10,6 +10,23 @@ const FOCUS_CAMERA = new THREE.Vector3(38, 18, 172);
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const FOCUS_DURATION_MS = 1350;
 
+const ORBIT_PLANES = Object.freeze([
+  { radius: 143, tiltX: 1.08, tiltY: 0.06, tiltZ: 0.34, count: 26, phase: 0.15, speed: 0.25, opacity: 0.22 },
+  { radius: 154, tiltX: 0.78, tiltY: -0.38, tiltZ: -0.72, count: 22, phase: 0.58, speed: -0.15, opacity: 0.17 },
+  { radius: 165, tiltX: 1.28, tiltY: 0.44, tiltZ: 1.08, count: 18, phase: 0.04, speed: 0.12, opacity: 0.13 },
+  { radius: 176, tiltX: 0.42, tiltY: 0.18, tiltZ: -1.22, count: 14, phase: 0.36, speed: -0.08, opacity: 0.1 },
+]);
+
+const UPLINK_CITIES = Object.freeze([
+  ["Tokyo", 35.68, 139.76],
+  ["Shanghai", 31.23, 121.47],
+  ["Singapore", 1.35, 103.82],
+  ["London", 51.51, -0.13],
+  ["New York", 40.71, -74.01],
+  ["Los Angeles", 34.05, -118.24],
+  ["Sao Paulo", -23.55, -46.63],
+]);
+
 const CITY_LIGHTS = [
   ["Tokyo", 35.68, 139.76, 0.82],
   ["Seoul", 37.57, 126.98, 0.58],
@@ -41,10 +58,15 @@ export function createEarthScene(stage) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x020611, 0);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  if ("outputColorSpace" in renderer) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  }
   stage.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x020611, 0.00095);
+  scene.fog = new THREE.FogExp2(0x030812, 0.00046);
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1200);
   camera.position.copy(HOME_CAMERA);
@@ -68,16 +90,16 @@ export function createEarthScene(stage) {
       CITY_LIGHTS.map(([, lat, lng, weight]) => ({
         lat,
         lng,
-        altitude: 0.012,
-        radius: 0.18 + weight * 0.36,
-        color: `rgba(255, ${Math.round(168 + weight * 72)}, 108, ${0.68 + weight * 0.22})`,
+        altitude: 0.01,
+        radius: 0.08 + weight * 0.2,
+        color: `rgba(255, ${Math.round(190 + weight * 38)}, ${Math.round(150 + weight * 48)}, ${0.48 + weight * 0.24})`,
       })),
     );
 
-  globe.globeMaterial().color = new THREE.Color(0x78b9ff);
-  globe.globeMaterial().emissive = new THREE.Color(0x16385d);
-  globe.globeMaterial().emissiveIntensity = 0.28;
-  globe.globeMaterial().shininess = 8;
+  globe.globeMaterial().color = new THREE.Color(0xf6fbff);
+  globe.globeMaterial().emissive = new THREE.Color(0x15385c);
+  globe.globeMaterial().emissiveIntensity = 0.3;
+  globe.globeMaterial().shininess = 3;
   earthGroup.add(globe);
 
   const atmosphere = createAtmosphere();
@@ -86,8 +108,8 @@ export function createEarthScene(stage) {
   const clouds = createClouds();
   earthGroup.add(clouds);
 
-  const satelliteChain = createSatelliteChain();
-  earthGroup.add(satelliteChain);
+  const orbitalNetwork = createOrbitalNetwork();
+  earthGroup.add(orbitalNetwork);
 
   scene.add(createStars());
   addLights(scene);
@@ -117,8 +139,7 @@ export function createEarthScene(stage) {
     }
 
     clouds.rotation.y += delta * 0.024;
-    satelliteChain.rotation.y += delta * 0.34;
-    satelliteChain.rotation.z = Math.sin(elapsed * 0.35) * 0.045 + 0.35;
+    updateOrbitalNetwork(orbitalNetwork, delta, elapsed);
     updateTween();
 
     renderer.render(scene, camera);
@@ -186,23 +207,27 @@ export function createEarthScene(stage) {
 }
 
 function addLights(scene) {
-  const sun = new THREE.DirectionalLight(0xffffff, 3.1);
-  sun.position.set(-120, 85, 160);
+  const sun = new THREE.DirectionalLight(0xfff7ef, 2.65);
+  sun.position.set(-145, 105, 170);
   scene.add(sun);
 
-  const fill = new THREE.DirectionalLight(0x79baff, 1.25);
-  fill.position.set(180, -30, -90);
+  const fill = new THREE.DirectionalLight(0x7fa8d8, 1.18);
+  fill.position.set(180, -35, -105);
   scene.add(fill);
 
-  scene.add(new THREE.AmbientLight(0xb9d7ff, 1.28));
+  const oceanFill = new THREE.DirectionalLight(0x5daaff, 1.25);
+  oceanFill.position.set(18, 46, 260);
+  scene.add(oceanFill);
+
+  scene.add(new THREE.AmbientLight(0x8ca6c6, 1.04));
 }
 
 function createAtmosphere() {
-  const geometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.055, 96, 96);
+  const geometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.028, 96, 96);
   const material = new THREE.MeshBasicMaterial({
-    color: 0x5ac8ff,
+    color: 0x8fdcff,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0.085,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
@@ -213,9 +238,9 @@ function createAtmosphere() {
 function createClouds() {
   const geometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.012, 96, 96);
   const material = new THREE.MeshPhongMaterial({
-    color: 0xffffff,
+    color: 0xe9f0f3,
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.27,
     depthWrite: false,
   });
 
@@ -264,43 +289,147 @@ function createStars() {
   );
 }
 
-function createSatelliteChain() {
-  const chain = new THREE.Group();
-  chain.rotation.x = 1.08;
-  chain.rotation.z = 0.35;
+function createOrbitalNetwork() {
+  const network = new THREE.Group();
+  network.userData.orbitPlanes = [];
 
-  const orbit = new THREE.Mesh(
-    new THREE.TorusGeometry(GLOBE_RADIUS * 1.43, 0.095, 8, 192),
-    new THREE.MeshBasicMaterial({
-      color: 0x73d7ff,
-      transparent: true,
-      opacity: 0.34,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  chain.add(orbit);
+  const satelliteBodyGeometry = new THREE.SphereGeometry(0.48, 12, 12);
+  const satellitePanelGeometry = new THREE.BoxGeometry(0.045, 0.28, 1.05);
+  const pulseGeometry = new THREE.SphereGeometry(0.58, 16, 16);
 
-  const satelliteMaterial = new THREE.MeshBasicMaterial({
-    color: 0xdaf8ff,
+  const satelliteBodyMaterial = new THREE.MeshBasicMaterial({
+    color: 0xbfeeff,
     transparent: true,
-    opacity: 0.86,
-  });
-  const trailMaterial = new THREE.MeshBasicMaterial({
-    color: 0x5ac8ff,
-    transparent: true,
-    opacity: 0.34,
+    opacity: 0.72,
     blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const satellitePanelMaterial = new THREE.MeshBasicMaterial({
+    color: 0x7fd6ef,
+    transparent: true,
+    opacity: 0.36,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const pulseMaterial = new THREE.MeshBasicMaterial({
+    color: 0xa9efff,
+    transparent: true,
+    opacity: 0.5,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
 
-  for (let index = 0; index < 7; index += 1) {
-    const angle = index * 0.18;
-    const satellite = new THREE.Mesh(new THREE.SphereGeometry(index === 0 ? 1.8 : 1.05, 16, 16), index === 0 ? satelliteMaterial : trailMaterial);
-    satellite.position.set(Math.cos(angle) * GLOBE_RADIUS * 1.43, Math.sin(angle) * GLOBE_RADIUS * 1.43, 0);
-    chain.add(satellite);
-  }
+  ORBIT_PLANES.forEach((plane, planeIndex) => {
+    const planeGroup = new THREE.Group();
+    planeGroup.rotation.set(plane.tiltX, plane.tiltY, plane.tiltZ);
+    planeGroup.userData.speed = plane.speed;
+    planeGroup.userData.phase = plane.phase;
 
-  return chain;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(plane.radius, 0.07, 8, 256),
+      new THREE.MeshBasicMaterial({
+        color: planeIndex < 2 ? 0xa7e8ff : 0x72d8ff,
+        transparent: true,
+        opacity: plane.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    planeGroup.add(ring);
+
+    for (let index = 0; index < plane.count; index += 1) {
+      const angle = plane.phase * Math.PI * 2 + (index / plane.count) * Math.PI * 2;
+      const satellite = createSatelliteNode(satelliteBodyGeometry, satellitePanelGeometry, satelliteBodyMaterial, satellitePanelMaterial);
+      const sizePulse = index % 6 === 0 ? 1.05 : 0.78;
+      satellite.scale.setScalar(sizePulse);
+      satellite.position.set(Math.cos(angle) * plane.radius, Math.sin(angle) * plane.radius, 0);
+      satellite.rotation.z = angle + Math.PI / 2;
+      planeGroup.add(satellite);
+    }
+
+    for (let index = 0; index < 4; index += 1) {
+      const angle = plane.phase * Math.PI * 2 + index * 1.62;
+      const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+      pulse.position.set(Math.cos(angle) * plane.radius, Math.sin(angle) * plane.radius, 0);
+      pulse.userData.angle = angle;
+      pulse.userData.radius = plane.radius;
+      pulse.userData.speed = plane.speed * 2.6 + (index + 1) * 0.12;
+      pulse.scale.setScalar(0.78 + index * 0.1);
+      planeGroup.add(pulse);
+    }
+
+    network.userData.orbitPlanes.push(planeGroup);
+    network.add(planeGroup);
+  });
+
+  network.add(createUplinkNetwork());
+
+  return network;
+}
+
+function createSatelliteNode(bodyGeometry, panelGeometry, bodyMaterial, panelMaterial) {
+  const satellite = new THREE.Group();
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  const leftPanel = new THREE.Mesh(panelGeometry, panelMaterial);
+  const rightPanel = new THREE.Mesh(panelGeometry, panelMaterial);
+
+  leftPanel.position.x = -0.92;
+  rightPanel.position.x = 0.92;
+  satellite.add(leftPanel, body, rightPanel);
+
+  return satellite;
+}
+
+function createUplinkNetwork() {
+  const uplinks = new THREE.Group();
+  const uplinkMaterial = new THREE.LineBasicMaterial({
+    color: 0x9eeeff,
+    transparent: true,
+    opacity: 0.13,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+
+  UPLINK_CITIES.forEach(([, lat, lng], index) => {
+    const start = latLngToVector(lat, lng, GLOBE_RADIUS * 1.018);
+    const end = latLngToVector(lat + Math.sin(index) * 7, lng + 15 + index * 8, GLOBE_RADIUS * 1.48);
+    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+    uplinks.add(new THREE.Line(geometry, uplinkMaterial));
+  });
+
+  return uplinks;
+}
+
+function updateOrbitalNetwork(network, delta, elapsed) {
+  network.rotation.y += delta * 0.08;
+  network.rotation.z = Math.sin(elapsed * 0.25) * 0.025;
+
+  for (const planeGroup of network.userData.orbitPlanes) {
+    planeGroup.rotation.z += delta * planeGroup.userData.speed;
+
+    for (const child of planeGroup.children) {
+      if (!Number.isFinite(child.userData.speed)) {
+        continue;
+      }
+
+      child.userData.angle += delta * child.userData.speed;
+      child.position.set(
+        Math.cos(child.userData.angle) * child.userData.radius,
+        Math.sin(child.userData.angle) * child.userData.radius,
+        0,
+      );
+    }
+  }
+}
+
+function latLngToVector(lat, lng, radius) {
+  const phi = THREE.MathUtils.degToRad(90 - lat);
+  const theta = THREE.MathUtils.degToRad(lng + 180);
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  );
 }
 
 function easeInOutCubic(value) {

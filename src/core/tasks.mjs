@@ -1,8 +1,10 @@
 import {
   DEFAULT_TASK_POOL,
+  LEGACY_TASK_TITLE_LABELS,
   RUNTIME_STATUSES,
   TASK_CATEGORIES,
   TASK_CATEGORY_LABELS,
+  TASK_TITLE_LABELS,
 } from "./constants.mjs";
 
 const TASK_COUNTS_BY_STATUS = Object.freeze({
@@ -68,10 +70,35 @@ export function expireTask(task, expiredAt = new Date().toISOString()) {
   };
 }
 
+export function localizeTaskCopy(task) {
+  if (!task || typeof task !== "object") {
+    return task;
+  }
+
+  const knownCategory = Object.values(TASK_CATEGORIES).includes(task.category) ? task.category : "";
+  const categoryLabel = knownCategory ? TASK_CATEGORY_LABELS[knownCategory] || knownCategory : task.categoryLabel;
+  const title = getLocalizedTaskTitle(task);
+
+  if (task.title === title && task.categoryLabel === categoryLabel) {
+    return task;
+  }
+
+  const nextTask = {
+    ...task,
+    title,
+  };
+
+  if (categoryLabel !== undefined) {
+    nextTask.categoryLabel = categoryLabel;
+  }
+
+  return nextTask;
+}
+
 function createMainQuestTask(mainQuest) {
   return {
     id: "main-quest-step",
-    title: `Advance main quest: ${mainQuest.title}`,
+    title: `推进主线：${mainQuest.title}`,
     category: TASK_CATEGORIES.MAIN_QUEST,
     exp: 24,
     source: "main_quest",
@@ -105,7 +132,7 @@ function normalizeGeneratedTask(task, { date, order, source }) {
   return {
     id: `${date || "undated"}-${order}-${task.id || slugify(task.title)}`,
     date,
-    title: String(task.title || "Execute one bounded system action"),
+    title: getNormalizedTaskTitle(task, source),
     category,
     categoryLabel: TASK_CATEGORY_LABELS[category] || category,
     exp: sanitizeExp(task.exp),
@@ -139,6 +166,36 @@ function getKnownCategory(category) {
 function sanitizeExp(exp) {
   const value = Number(exp);
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function getNormalizedTaskTitle(task, source) {
+  const title = String(task?.title || "").trim();
+
+  if (source === "custom") {
+    return title || "完成一个有边界的系统动作";
+  }
+
+  return getLocalizedTaskTitle({ id: task?.id, title });
+}
+
+function getLocalizedTaskTitle(task) {
+  const title = String(task?.title || "").trim();
+  const canonicalId = getCanonicalTaskId(task?.id);
+
+  if (canonicalId && TASK_TITLE_LABELS[canonicalId]) {
+    return TASK_TITLE_LABELS[canonicalId];
+  }
+
+  if (title.startsWith("Advance main quest: ")) {
+    return `推进主线：${title.slice("Advance main quest: ".length)}`;
+  }
+
+  return LEGACY_TASK_TITLE_LABELS[title] || title || "完成一个有边界的系统动作";
+}
+
+function getCanonicalTaskId(value) {
+  const taskId = String(value || "");
+  return Object.keys(TASK_TITLE_LABELS).find((id) => taskId === id || taskId.endsWith(`-${id}`));
 }
 
 function slugify(value) {

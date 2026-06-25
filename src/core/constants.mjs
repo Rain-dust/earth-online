@@ -34,6 +34,25 @@ export const TASK_CATEGORY_LABELS = Object.freeze({
   [TASK_CATEGORIES.NPC]: "NPC 过滤",
 });
 
+export const TASK_TITLE_LABELS = Object.freeze({
+  "body-low-intensity": "进行一次低强度身体维护",
+  "npc-skip-argument": "跳过一次可有可无的 NPC 争论",
+  "environment-clear-one": "清理一个可见环境项",
+  "input-reading": "阅读一份有边界的信息源",
+  "output-small-artifact": "产出一个小型作品",
+  "route-review": "复盘路线并选择下一个坐标",
+});
+
+export const LEGACY_TASK_TITLE_LABELS = Object.freeze({
+  "Execute low-intensity body maintenance": TASK_TITLE_LABELS["body-low-intensity"],
+  "Skip one optional NPC argument": TASK_TITLE_LABELS["npc-skip-argument"],
+  "Clear one visible environment item": TASK_TITLE_LABELS["environment-clear-one"],
+  "Read one bounded input source": TASK_TITLE_LABELS["input-reading"],
+  "Export one small artifact": TASK_TITLE_LABELS["output-small-artifact"],
+  "Review route and choose next waypoint": TASK_TITLE_LABELS["route-review"],
+  "Execute one bounded system action": "完成一个有边界的系统动作",
+});
+
 export const DEFAULT_TAGS = Object.freeze([
   "INTP",
   "INFJ",
@@ -49,7 +68,7 @@ export const DEFAULT_TAGS = Object.freeze([
 export const DEFAULT_TASK_POOL = Object.freeze([
   Object.freeze({
     id: "body-low-intensity",
-    title: "Execute low-intensity body maintenance",
+    title: TASK_TITLE_LABELS["body-low-intensity"],
     category: TASK_CATEGORIES.BODY,
     exp: 12,
     statuses: Object.freeze([
@@ -60,7 +79,7 @@ export const DEFAULT_TASK_POOL = Object.freeze([
   }),
   Object.freeze({
     id: "npc-skip-argument",
-    title: "Skip one optional NPC argument",
+    title: TASK_TITLE_LABELS["npc-skip-argument"],
     category: TASK_CATEGORIES.NPC,
     exp: 14,
     statuses: Object.freeze([
@@ -70,7 +89,7 @@ export const DEFAULT_TASK_POOL = Object.freeze([
   }),
   Object.freeze({
     id: "environment-clear-one",
-    title: "Clear one visible environment item",
+    title: TASK_TITLE_LABELS["environment-clear-one"],
     category: TASK_CATEGORIES.ENVIRONMENT,
     exp: 10,
     statuses: Object.freeze([
@@ -80,7 +99,7 @@ export const DEFAULT_TASK_POOL = Object.freeze([
   }),
   Object.freeze({
     id: "input-reading",
-    title: "Read one bounded input source",
+    title: TASK_TITLE_LABELS["input-reading"],
     category: TASK_CATEGORIES.INPUT,
     exp: 16,
     statuses: Object.freeze([
@@ -90,7 +109,7 @@ export const DEFAULT_TASK_POOL = Object.freeze([
   }),
   Object.freeze({
     id: "output-small-artifact",
-    title: "Export one small artifact",
+    title: TASK_TITLE_LABELS["output-small-artifact"],
     category: TASK_CATEGORIES.OUTPUT,
     exp: 18,
     statuses: Object.freeze([
@@ -100,7 +119,7 @@ export const DEFAULT_TASK_POOL = Object.freeze([
   }),
   Object.freeze({
     id: "route-review",
-    title: "Review route and choose next waypoint",
+    title: TASK_TITLE_LABELS["route-review"],
     category: TASK_CATEGORIES.INPUT,
     exp: 15,
     statuses: Object.freeze([

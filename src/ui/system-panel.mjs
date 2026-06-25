@@ -1,6 +1,6 @@
 import { STATUS_LABELS } from "../core/constants.mjs";
 import { applyExp, unlockRuntimeAchievements } from "../core/progression.mjs";
-import { completeTask, generateDailyTasks } from "../core/tasks.mjs";
+import { completeTask, generateDailyTasks, localizeTaskCopy } from "../core/tasks.mjs";
 
 const DEFAULT_NICKNAME = "未命名玩家";
 const DEFAULT_TITLE = "地球 Online 观察员";
@@ -8,13 +8,15 @@ const PANEL_TAG_LIMIT = 12;
 
 export function getDailyTasksForSave(save, today, { persistGeneratedTasks = true } = {}) {
   const dailyTasks = Array.isArray(save?.dailyTasks) ? save.dailyTasks : [];
-  const todaysTasks = dailyTasks.filter((task) => task?.date === today);
+  const localizedDailyTasks = dailyTasks.map(localizeTaskCopy);
+  const changedExistingTasks = localizedDailyTasks.some((task, index) => task !== dailyTasks[index]);
+  const todaysTasks = localizedDailyTasks.filter((task) => task?.date === today);
 
   if (todaysTasks.length > 0) {
     return {
-      save,
+      save: changedExistingTasks ? { ...save, dailyTasks: localizedDailyTasks } : save,
       tasks: todaysTasks,
-      changed: false,
+      changed: persistGeneratedTasks && changedExistingTasks,
       generated: false,
     };
   }
@@ -28,7 +30,7 @@ export function getDailyTasksForSave(save, today, { persistGeneratedTasks = true
   const nextSave = {
     ...save,
     dailyTasks: [
-      ...dailyTasks,
+      ...localizedDailyTasks,
       ...tasks,
     ],
   };
@@ -158,7 +160,7 @@ export function renderSystemPanel(root, {
 
     <section class="daily-tasks" aria-label="每日任务">
       <header>
-        <span>DAILY TASKS</span>
+        <span>每日任务</span>
         <strong>${escapeHtml(today)}</strong>
       </header>
       <div class="task-list">
@@ -220,9 +222,9 @@ function renderTaskRow(task, { allowTaskCompletion = true } = {}) {
       <span class="task-order">${escapeHtml(task?.order || "-")}</span>
       <div class="task-copy">
         <span>${escapeHtml(task?.categoryLabel || task?.category || "任务")}</span>
-        <strong>${escapeHtml(task?.title || "Execute one bounded system action")}</strong>
+        <strong>${escapeHtml(task?.title || "完成一个有边界的系统动作")}</strong>
       </div>
-      <span class="task-exp">+${escapeHtml(task?.exp || 0)} EXP</span>
+      <span class="task-exp">+${escapeHtml(task?.exp || 0)} 经验</span>
       <button type="button" data-task-id="${escapeHtml(task?.id || "")}" ${action.disabled ? "disabled" : ""}>
         ${escapeHtml(action.label)}
       </button>
