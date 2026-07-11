@@ -393,3 +393,57 @@ test("completeOldSaveReview records no representative when all confirmed records
     remainingCount: 2,
   });
 });
+
+test("completeOldSaveReview ignores malformed achievement entries", () => {
+  const completed = completeOldSaveReview(
+    {
+      achievements: [
+        null,
+        undefined,
+        42,
+        "academic-complete",
+        [],
+        {},
+        { achievementId: "true-bond", source: "old_save_confirmed" },
+      ],
+      achievementArchive: createEmptyAchievementArchive(),
+    },
+    "2026-07-11T06:00:00.000Z",
+  );
+
+  assert.deepEqual(completed.achievementArchive.lastRecovery, {
+    at: "2026-07-11T06:00:00.000Z",
+    count: 1,
+    representativeId: "true-bond",
+    remainingCount: 0,
+  });
+});
+
+test("completeOldSaveReview counts duplicate IDs once and aggregates privacy conservatively", () => {
+  const completed = completeOldSaveReview(
+    {
+      achievements: [
+        { achievementId: "true-bond", source: "old_save_confirmed" },
+        { id: "true-bond", source: "old_save_confirmed", hidden: true },
+        { achievementId: "driver-license-hunter", source: "old_save_confirmed" },
+        {
+          id: "driver-license-hunter",
+          source: "old_save_confirmed",
+          spotlightAllowed: false,
+        },
+        { achievementId: "keep-passion", source: "old_save_confirmed" },
+        { id: "keep-passion", source: "runtime", hidden: true },
+        { achievementId: "not-in-catalog", source: "old_save_confirmed" },
+      ],
+      achievementArchive: createEmptyAchievementArchive(),
+    },
+    "2026-07-11T07:00:00.000Z",
+  );
+
+  assert.deepEqual(completed.achievementArchive.lastRecovery, {
+    at: "2026-07-11T07:00:00.000Z",
+    count: 3,
+    representativeId: "keep-passion",
+    remainingCount: 2,
+  });
+});

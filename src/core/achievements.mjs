@@ -162,16 +162,29 @@ export function completeOldSaveReview(save, now = new Date().toISOString()) {
   const catalogOrder = new Map(
     ACHIEVEMENT_CATALOG.map((definition, index) => [definition.id, index]),
   );
-  const confirmed = getAchievements(save).flatMap((instance) => {
+  const confirmedById = new Map();
+  for (const instance of getAchievements(save)) {
+    if (!isRecord(instance) || instance.source !== "old_save_confirmed") {
+      continue;
+    }
+
     const definition = getAchievementDefinition(getAchievementInstanceId(instance));
-    return instance.source === "old_save_confirmed" && definition
-      ? [{ instance, definition }]
-      : [];
-  });
+    if (!definition) {
+      continue;
+    }
+
+    const existing = confirmedById.get(definition.id);
+    confirmedById.set(definition.id, {
+      definition,
+      privacyRestricted:
+        existing?.privacyRestricted === true ||
+        instance.hidden === true ||
+        instance.spotlightAllowed === false,
+    });
+  }
+  const confirmed = [...confirmedById.values()];
   const representative = confirmed
-    .filter(
-      ({ instance }) => instance.hidden !== true && instance.spotlightAllowed !== false,
-    )
+    .filter(({ privacyRestricted }) => !privacyRestricted)
     .sort(
       (left, right) =>
         left.definition.rarityPercent - right.definition.rarityPercent ||
