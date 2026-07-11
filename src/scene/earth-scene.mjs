@@ -11,10 +11,9 @@ const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const FOCUS_DURATION_MS = 1350;
 
 const ORBIT_PLANES = Object.freeze([
-  { radius: 143, tiltX: 1.08, tiltY: 0.06, tiltZ: 0.34, count: 26, phase: 0.15, speed: 0.25, opacity: 0.22 },
-  { radius: 154, tiltX: 0.78, tiltY: -0.38, tiltZ: -0.72, count: 22, phase: 0.58, speed: -0.15, opacity: 0.17 },
-  { radius: 165, tiltX: 1.28, tiltY: 0.44, tiltZ: 1.08, count: 18, phase: 0.04, speed: 0.12, opacity: 0.13 },
-  { radius: 176, tiltX: 0.42, tiltY: 0.18, tiltZ: -1.22, count: 14, phase: 0.36, speed: -0.08, opacity: 0.1 },
+  { radius: 145, tiltX: 1.08, tiltY: 0.06, tiltZ: 0.34, count: 18, phase: 0.15, speed: 0.21, opacity: 0.16 },
+  { radius: 158, tiltX: 0.78, tiltY: -0.38, tiltZ: -0.72, count: 14, phase: 0.58, speed: -0.13, opacity: 0.11 },
+  { radius: 172, tiltX: 1.28, tiltY: 0.44, tiltZ: 1.08, count: 10, phase: 0.04, speed: 0.1, opacity: 0.075 },
 ]);
 
 const UPLINK_CITIES = Object.freeze([
@@ -326,7 +325,7 @@ function createOrbitalNetwork() {
     planeGroup.userData.phase = plane.phase;
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(plane.radius, 0.07, 8, 256),
+      new THREE.TorusGeometry(plane.radius, 0.045, 8, 256),
       new THREE.MeshBasicMaterial({
         color: planeIndex < 2 ? 0xa7e8ff : 0x72d8ff,
         transparent: true,
@@ -347,7 +346,7 @@ function createOrbitalNetwork() {
       planeGroup.add(satellite);
     }
 
-    for (let index = 0; index < 4; index += 1) {
+    for (let index = 0; index < 3; index += 1) {
       const angle = plane.phase * Math.PI * 2 + index * 1.62;
       const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
       pulse.position.set(Math.cos(angle) * plane.radius, Math.sin(angle) * plane.radius, 0);
@@ -385,7 +384,7 @@ function createUplinkNetwork() {
   const uplinkMaterial = new THREE.LineBasicMaterial({
     color: 0x9eeeff,
     transparent: true,
-    opacity: 0.13,
+    opacity: 0.075,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });

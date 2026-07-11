@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   completePanelTask,
+  getDailySyncStats,
   getDailyTasksForSave,
+  getOnlineStreakDays,
   getTaskActionState,
+  getTaskCompletionMessage,
 } from "../../src/ui/system-panel.mjs";
 
 test("getDailyTasksForSave reuses today's tasks without changing save", () => {
@@ -72,7 +75,7 @@ test("getDailyTasksForSave can preview generated tasks without requesting persis
   assert.deepEqual(result.save.dailyTasks, result.tasks);
 });
 
-test("getTaskActionState disables generated preview tasks", () => {
+test("getTaskActionState uses sync-oriented labels", () => {
   const pendingTask = { completed: false };
   const completedTask = { completed: true };
 
@@ -82,11 +85,50 @@ test("getTaskActionState disables generated preview tasks", () => {
   );
   assert.deepEqual(
     getTaskActionState(pendingTask, { allowCompletion: true }),
-    { disabled: false, label: "完成" },
+    { disabled: false, label: "同步" },
   );
   assert.deepEqual(
     getTaskActionState(completedTask, { allowCompletion: false }),
-    { disabled: true, label: "已完成" },
+    { disabled: true, label: "已同步" },
+  );
+});
+
+test("getDailySyncStats summarizes today's completion progress", () => {
+  assert.deepEqual(
+    getDailySyncStats([
+      { completed: true },
+      { completed: false },
+      { completed: true },
+      { completed: false },
+    ]),
+    { completed: 2, total: 4, percent: 50, label: "2 / 4" },
+  );
+});
+
+test("getOnlineStreakDays counts consecutive task dates through today", () => {
+  const save = {
+    dailyTasks: [
+      { date: "2026-06-21" },
+      { date: "2026-06-22" },
+      { date: "2026-06-23" },
+      { date: "2026-06-25" },
+    ],
+  };
+
+  assert.equal(getOnlineStreakDays(save, "2026-06-25"), 1);
+  assert.equal(getOnlineStreakDays({
+    dailyTasks: [
+      { date: "2026-06-23" },
+      { date: "2026-06-24" },
+      { date: "2026-06-25" },
+    ],
+  }, "2026-06-25"), 3);
+});
+
+test("task completion copy uses Earth Online tone", () => {
+  assert.equal(
+    getTaskCompletionMessage({ category: "cognitive_input" }),
+    "\u5df2\u8bb0\u5f55\uff1a\u4e00\u6b21\u8ba4\u77e5\u7ef4\u62a4\u5b8c\u6210\u3002",
   );
 });
 
