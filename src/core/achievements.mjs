@@ -46,7 +46,7 @@ function normalizeScanStatus(value) {
 }
 
 function normalizeNullableString(value) {
-  return typeof value === "string" && value.trim() ? value : null;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function normalizeIds(value) {

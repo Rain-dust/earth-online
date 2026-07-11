@@ -101,8 +101,8 @@ test("normalizeAchievementArchive accepts valid scalars and clones lastRecovery"
   const normalized = normalizeAchievementArchive({
     version: 2,
     scanStatus: "review",
-    firstNightEnteredAt: "2026-07-10T16:00:00.000Z",
-    lastSwitchDate: "2026-07-11",
+    firstNightEnteredAt: " 2026-07-10T16:00:00.000Z ",
+    lastSwitchDate: "  2026-07-11  ",
     switchCount: 3,
     lastRecovery,
   });
