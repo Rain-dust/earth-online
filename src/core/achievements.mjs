@@ -1,3 +1,8 @@
+import {
+  ACHIEVEMENT_CATALOG,
+  getAchievementDefinition,
+} from "./achievement-catalog.mjs";
+
 export function createEmptyAchievementArchive() {
   return {
     version: 1,
@@ -17,6 +22,176 @@ export function getAchievementInstanceId(instance) {
   }
 
   return normalizeId(instance.achievementId) || normalizeId(instance.id);
+}
+
+export function getOldSaveCandidateIds(answers = {}) {
+  const source = isRecord(answers) ? answers : {};
+  const signals = new Set();
+
+  if (["undergraduate", "graduate"].includes(source.educationStage)) {
+    signals.add(`education_${source.educationStage}`);
+  }
+  if (["working", "freelancing"].includes(source.currentStage)) {
+    signals.add(`stage_${source.currentStage}`);
+  }
+  if (["recovered", "repeated_recovery"].includes(source.setbackRecovery)) {
+    signals.add(`setback_${source.setbackRecovery}`);
+  }
+
+  return ACHIEVEMENT_CATALOG
+    .filter((definition) => definition.oldSaveSignals.some((signal) => signals.has(signal)))
+    .map((definition) => definition.id);
+}
+
+export function confirmOldSaveAchievement(save, id, now = new Date().toISOString()) {
+  const definition = getAchievementDefinition(normalizeId(id));
+  if (!definition) {
+    return save;
+  }
+
+  const achievements = getAchievements(save);
+  const alreadyConfirmed = achievements.some(
+    (instance) => getAchievementInstanceId(instance) === definition.id,
+  );
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+
+  return {
+    ...save,
+    achievements: alreadyConfirmed
+      ? achievements
+      : [
+          ...achievements,
+          {
+            achievementId: definition.id,
+            unlockedAt: now,
+            source: "old_save_confirmed",
+            hidden: false,
+            displayable: true,
+            spotlightAllowed: true,
+          },
+        ],
+    achievementArchive: {
+      ...archive,
+      dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+    },
+  };
+}
+
+export function dismissOldSaveAchievement(save, id) {
+  const definition = getAchievementDefinition(normalizeId(id));
+  if (!definition) {
+    return save;
+  }
+
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+  return {
+    ...save,
+    achievementArchive: {
+      ...archive,
+      dismissedIds: [...new Set([...archive.dismissedIds, definition.id])],
+    },
+  };
+}
+
+export function restoreDismissedOldSaveAchievement(save, id) {
+  const definition = getAchievementDefinition(normalizeId(id));
+  if (!definition) {
+    return save;
+  }
+
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+  return {
+    ...save,
+    achievementArchive: {
+      ...archive,
+      dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+    },
+  };
+}
+
+export function revokeOldSaveAchievement(save, id) {
+  const definition = getAchievementDefinition(normalizeId(id));
+  if (!definition) {
+    return save;
+  }
+
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+  return {
+    ...save,
+    achievements: getAchievements(save).filter(
+      (instance) =>
+        getAchievementInstanceId(instance) !== definition.id ||
+        instance.source !== "old_save_confirmed",
+    ),
+    achievementArchive: {
+      ...archive,
+      candidateIds: [...new Set([...archive.candidateIds, definition.id])],
+      dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+    },
+  };
+}
+
+export function setAchievementPresentation(save, id, patch) {
+  const instanceId = normalizeId(id);
+  const achievements = getAchievements(save);
+  if (!instanceId || !achievements.some((instance) => getAchievementInstanceId(instance) === instanceId)) {
+    return save;
+  }
+
+  const presentationPatch = {};
+  for (const field of ["hidden", "displayable", "spotlightAllowed"]) {
+    if (typeof patch?.[field] === "boolean") {
+      presentationPatch[field] = patch[field];
+    }
+  }
+  if (Object.keys(presentationPatch).length === 0) {
+    return save;
+  }
+
+  return {
+    ...save,
+    achievements: achievements.map((instance) =>
+      getAchievementInstanceId(instance) === instanceId
+        ? { ...instance, ...presentationPatch }
+        : instance,
+    ),
+  };
+}
+
+export function completeOldSaveReview(save, now = new Date().toISOString()) {
+  const catalogOrder = new Map(
+    ACHIEVEMENT_CATALOG.map((definition, index) => [definition.id, index]),
+  );
+  const confirmed = getAchievements(save).flatMap((instance) => {
+    const definition = getAchievementDefinition(getAchievementInstanceId(instance));
+    return instance.source === "old_save_confirmed" && definition
+      ? [{ instance, definition }]
+      : [];
+  });
+  const representative = confirmed
+    .filter(
+      ({ instance }) => instance.hidden !== true && instance.spotlightAllowed !== false,
+    )
+    .sort(
+      (left, right) =>
+        left.definition.rarityPercent - right.definition.rarityPercent ||
+        catalogOrder.get(left.definition.id) - catalogOrder.get(right.definition.id),
+    )[0];
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+
+  return {
+    ...save,
+    achievementArchive: {
+      ...archive,
+      scanStatus: "complete",
+      lastRecovery: {
+        at: now,
+        count: confirmed.length,
+        representativeId: representative?.definition.id || null,
+        remainingCount: confirmed.length - (representative ? 1 : 0),
+      },
+    },
+  };
 }
 
 export function normalizeAchievementArchive(value) {
@@ -55,6 +230,10 @@ function normalizeIds(value) {
   }
 
   return [...new Set(value.map(normalizeId).filter(Boolean))];
+}
+
+function getAchievements(save) {
+  return Array.isArray(save?.achievements) ? save.achievements : [];
 }
 
 function normalizeId(value) {

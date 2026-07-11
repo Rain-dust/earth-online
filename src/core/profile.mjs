@@ -1,4 +1,5 @@
 import { RUNTIME_STATUSES } from "./constants.mjs";
+import { getOldSaveCandidateIds } from "./achievements.mjs";
 import { getLevelFromExp, getRarity } from "./progression.mjs";
 import { createEmptySave } from "./storage.mjs";
 
@@ -47,6 +48,11 @@ export function createInitialProfileSave({
     ],
     mainQuest: normalizeMainQuest(importAnswers.mainQuest, now),
     achievements,
+    achievementArchive: {
+      ...save.achievementArchive,
+      scanStatus: "review",
+      candidateIds: getOldSaveCandidateIds(importAnswers),
+    },
     titles,
     tags,
     realLifeAchievements: achievements.filter((item) => item.source === "self_confirmed"),

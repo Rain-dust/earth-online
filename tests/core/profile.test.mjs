@@ -63,3 +63,41 @@ test("calculateInitialExp clamps negative counts to zero", () => {
 
   assert.ok(negativeCounts >= zeroCounts);
 });
+
+test("createInitialProfileSave queues strong old-save candidates without auto-awarding catalog records", () => {
+  const save = createInitialProfileSave({
+    now: "2026-07-11T06:00:00.000Z",
+    importAnswers: {
+      educationStage: "graduate",
+      currentStage: "working",
+      setbackRecovery: "repeated_recovery",
+    },
+  });
+
+  assert.equal(save.achievementArchive.scanStatus, "review");
+  assert.deepEqual(save.achievementArchive.candidateIds, [
+    "academic-complete",
+    "first-job",
+    "self-rescue",
+  ]);
+  assert.ok(save.achievements.some((item) => item.id === "old_save_imported"));
+  assert.equal(
+    save.achievements.some((item) =>
+      [
+        "academic-complete",
+        "driver-license-hunter",
+        "cooking-awakened",
+        "first-love",
+        "first-job",
+        "overseas-checkin",
+        "true-bond",
+        "self-rescue",
+        "keep-passion",
+        "wilderness-camp",
+        "financial-freedom",
+        "paid-home",
+      ].includes(item.achievementId || item.id),
+    ),
+    false,
+  );
+});
