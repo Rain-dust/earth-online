@@ -9,6 +9,24 @@ const HOME_CAMERA = new THREE.Vector3(0, 42, 285);
 const FOCUS_CAMERA = new THREE.Vector3(38, 18, 172);
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const FOCUS_DURATION_MS = 1350;
+const NIGHT_ROTATION_DELTA = Math.PI * 0.7;
+const NIGHT_ATMOSPHERE_OPACITY = 0.052;
+
+const DAY_VISUAL_STATE = Object.freeze({
+  exposure: 1.2,
+  sun: 2.65,
+  fill: 1.18,
+  oceanFill: 1.25,
+  emissive: 0.3,
+});
+
+const NIGHT_VISUAL_STATE = Object.freeze({
+  exposure: 0.82,
+  sun: 0.58,
+  fill: 1.42,
+  oceanFill: 0.5,
+  emissive: 0.16,
+});
 
 const ORBIT_PLANES = Object.freeze([
   { radius: 145, tiltX: 1.08, tiltY: 0.06, tiltZ: 0.34, count: 18, phase: 0.15, speed: 0.21, opacity: 0.16 },
@@ -95,10 +113,11 @@ export function createEarthScene(stage) {
       })),
     );
 
-  globe.globeMaterial().color = new THREE.Color(0xf6fbff);
-  globe.globeMaterial().emissive = new THREE.Color(0x15385c);
-  globe.globeMaterial().emissiveIntensity = 0.3;
-  globe.globeMaterial().shininess = 3;
+  const globeMaterial = globe.globeMaterial();
+  globeMaterial.color = new THREE.Color(0xf6fbff);
+  globeMaterial.emissive = new THREE.Color(0x15385c);
+  globeMaterial.emissiveIntensity = DAY_VISUAL_STATE.emissive;
+  globeMaterial.shininess = 3;
   earthGroup.add(globe);
 
   const atmosphere = createAtmosphere();
@@ -111,12 +130,20 @@ export function createEarthScene(stage) {
   earthGroup.add(orbitalNetwork);
 
   scene.add(createStars());
-  addLights(scene);
+  const { sun, fill, oceanFill } = addLights(scene);
 
   let frameId = 0;
   let isRunning = false;
   let idleRotation = true;
   let activeTween = null;
+  let activeVisualTween = null;
+  let visualFactor = 0;
+  let dayRotation = null;
+  let nightRotation = null;
+  let targetVisualMode = "day";
+  let nightRotationLocked = false;
+
+  const dayAtmosphereOpacity = atmosphere.material.opacity;
 
   const clock = new THREE.Clock();
 
@@ -133,13 +160,14 @@ export function createEarthScene(stage) {
     const delta = clock.getDelta();
     const elapsed = clock.elapsedTime;
 
-    if (idleRotation) {
+    if (idleRotation && !nightRotationLocked) {
       earthGroup.rotation.y += delta * 0.045;
     }
 
     clouds.rotation.y += delta * 0.024;
     updateOrbitalNetwork(orbitalNetwork, delta, elapsed);
     updateTween();
+    updateVisualTween();
 
     renderer.render(scene, camera);
     frameId = requestAnimationFrame(render);
@@ -165,6 +193,49 @@ export function createEarthScene(stage) {
   function home() {
     idleRotation = true;
     tweenCamera(HOME_CAMERA, 900);
+  }
+
+  function toNight(duration = 1300) {
+    validateTransitionDuration(duration);
+    settleActiveVisualTween();
+
+    if (targetVisualMode !== "night") {
+      dayRotation = earthGroup.rotation.y;
+      nightRotation = dayRotation + NIGHT_ROTATION_DELTA;
+    }
+
+    targetVisualMode = "night";
+    nightRotationLocked = true;
+    return startVisualTween(1, nightRotation, duration, () => {});
+  }
+
+  function toDay(duration = 700) {
+    validateTransitionDuration(duration);
+    settleActiveVisualTween();
+
+    if (targetVisualMode === "day" && visualFactor === 0) {
+      dayRotation = earthGroup.rotation.y;
+    }
+
+    targetVisualMode = "day";
+    nightRotationLocked = true;
+    return startVisualTween(0, dayRotation ?? earthGroup.rotation.y, duration, () => {
+      if (targetVisualMode === "day") {
+        nightRotationLocked = false;
+      }
+    });
+  }
+
+  function skipTransition() {
+    if (!activeVisualTween) {
+      return;
+    }
+
+    const tween = activeVisualTween;
+    activeVisualTween = null;
+    applyVisualState(tween.targetFactor, tween.targetRotation);
+    tween.onComplete();
+    tween.resolve();
   }
 
   function tweenCamera(target, duration) {
@@ -202,7 +273,81 @@ export function createEarthScene(stage) {
     }
   }
 
-  return { start, focus, home };
+  function startVisualTween(targetFactor, targetRotation, duration, onComplete) {
+    if (duration === 0) {
+      applyVisualState(targetFactor, targetRotation);
+      onComplete();
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      activeVisualTween = {
+        fromFactor: visualFactor,
+        targetFactor,
+        fromRotation: earthGroup.rotation.y,
+        targetRotation,
+        startedAt: performance.now(),
+        duration,
+        onComplete,
+        resolve,
+      };
+    });
+  }
+
+  function settleActiveVisualTween() {
+    if (!activeVisualTween) {
+      return;
+    }
+
+    updateVisualTween();
+    if (!activeVisualTween) {
+      return;
+    }
+
+    const tween = activeVisualTween;
+    activeVisualTween = null;
+    tween.resolve();
+  }
+
+  function updateVisualTween() {
+    if (!activeVisualTween) {
+      return;
+    }
+
+    const tween = activeVisualTween;
+    const progress = Math.min((performance.now() - tween.startedAt) / tween.duration, 1);
+    const eased = easeInOutCubic(progress);
+    const nextFactor = THREE.MathUtils.lerp(tween.fromFactor, tween.targetFactor, eased);
+    const nextRotation = THREE.MathUtils.lerp(tween.fromRotation, tween.targetRotation, eased);
+    applyVisualState(nextFactor, nextRotation);
+
+    if (progress >= 1) {
+      activeVisualTween = null;
+      tween.onComplete();
+      tween.resolve();
+    }
+  }
+
+  function applyVisualState(factor, rotation) {
+    visualFactor = factor;
+    earthGroup.rotation.y = rotation;
+    renderer.toneMappingExposure = interpolateVisualValue("exposure", factor);
+    sun.intensity = interpolateVisualValue("sun", factor);
+    fill.intensity = interpolateVisualValue("fill", factor);
+    oceanFill.intensity = interpolateVisualValue("oceanFill", factor);
+    globeMaterial.emissiveIntensity = interpolateVisualValue("emissive", factor);
+    atmosphere.material.opacity = THREE.MathUtils.lerp(
+      dayAtmosphereOpacity,
+      NIGHT_ATMOSPHERE_OPACITY,
+      factor,
+    );
+  }
+
+  function interpolateVisualValue(property, factor) {
+    return THREE.MathUtils.lerp(DAY_VISUAL_STATE[property], NIGHT_VISUAL_STATE[property], factor);
+  }
+
+  return { start, focus, home, toNight, toDay, skipTransition };
 }
 
 function addLights(scene) {
@@ -219,6 +364,8 @@ function addLights(scene) {
   scene.add(oceanFill);
 
   scene.add(new THREE.AmbientLight(0x8ca6c6, 1.04));
+
+  return { sun, fill, oceanFill };
 }
 
 function createAtmosphere() {
@@ -433,4 +580,10 @@ function latLngToVector(lat, lng, radius) {
 
 function easeInOutCubic(value) {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function validateTransitionDuration(duration) {
+  if (!Number.isFinite(duration) || duration < 0) {
+    throw new RangeError("Transition duration must be finite and nonnegative");
+  }
 }
