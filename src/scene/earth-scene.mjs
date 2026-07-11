@@ -10,7 +10,8 @@ const FOCUS_CAMERA = new THREE.Vector3(38, 18, 172);
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const FOCUS_DURATION_MS = 1350;
 const NIGHT_ROTATION_DELTA = Math.PI * 0.7;
-const NIGHT_ATMOSPHERE_OPACITY = 0.052;
+const DAY_ATMOSPHERE_OPACITY = 0.29;
+const NIGHT_ATMOSPHERE_OPACITY = 0.18;
 
 const DAY_VISUAL_STATE = Object.freeze({
   exposure: 1.2,
@@ -143,8 +144,6 @@ export function createEarthScene(stage) {
   let targetVisualMode = "day";
   let nightRotationLocked = false;
 
-  const dayAtmosphereOpacity = atmosphere.material.opacity;
-
   const clock = new THREE.Clock();
 
   function resize() {
@@ -199,8 +198,11 @@ export function createEarthScene(stage) {
     validateTransitionDuration(duration);
     settleActiveVisualTween();
 
-    if (targetVisualMode !== "night") {
+    if (dayRotation === null) {
       dayRotation = earthGroup.rotation.y;
+    }
+
+    if (nightRotation === null) {
       nightRotation = dayRotation + NIGHT_ROTATION_DELTA;
     }
 
@@ -213,15 +215,17 @@ export function createEarthScene(stage) {
     validateTransitionDuration(duration);
     settleActiveVisualTween();
 
-    if (targetVisualMode === "day" && visualFactor === 0) {
-      dayRotation = earthGroup.rotation.y;
+    if (dayRotation === null) {
+      return Promise.resolve();
     }
 
     targetVisualMode = "day";
     nightRotationLocked = true;
-    return startVisualTween(0, dayRotation ?? earthGroup.rotation.y, duration, () => {
+    return startVisualTween(0, dayRotation, duration, () => {
       if (targetVisualMode === "day") {
         nightRotationLocked = false;
+        dayRotation = null;
+        nightRotation = null;
       }
     });
   }
@@ -337,7 +341,7 @@ export function createEarthScene(stage) {
     oceanFill.intensity = interpolateVisualValue("oceanFill", factor);
     globeMaterial.emissiveIntensity = interpolateVisualValue("emissive", factor);
     atmosphere.material.opacity = THREE.MathUtils.lerp(
-      dayAtmosphereOpacity,
+      DAY_ATMOSPHERE_OPACITY,
       NIGHT_ATMOSPHERE_OPACITY,
       factor,
     );
@@ -373,7 +377,7 @@ function createAtmosphere() {
   const material = new THREE.MeshBasicMaterial({
     color: 0x8fdcff,
     transparent: true,
-    opacity: 0.085,
+    opacity: DAY_ATMOSPHERE_OPACITY,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
