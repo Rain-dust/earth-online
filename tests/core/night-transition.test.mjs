@@ -79,6 +79,18 @@ test("recordNightSwitch resets the count on a new day and records the first entr
   });
 });
 
+test("recordNightSwitch defaults to the current ISO timestamp when now is omitted", () => {
+  let updated;
+
+  assert.doesNotThrow(() => {
+    updated = recordNightSwitch({});
+  });
+  assert.match(updated.firstNightEnteredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.match(updated.lastSwitchDate, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(updated.lastSwitchDate, updated.firstNightEnteredAt.slice(0, 10));
+  assert.equal(updated.switchCount, 1);
+});
+
 test("recordNightSwitch treats invalid same-day counts as zero", () => {
   const now = "2026-07-12T22:00:00+08:00";
 

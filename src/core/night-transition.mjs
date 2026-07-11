@@ -11,7 +11,7 @@ export function getNightTransitionDuration(archive, dateKey, reducedMotion) {
   return safeArchive.lastSwitchDate === dateKey ? 700 : 1300;
 }
 
-export function recordNightSwitch(archive, now) {
+export function recordNightSwitch(archive, now = new Date().toISOString()) {
   const safeArchive = isObject(archive) ? archive : {};
   const dateKey = now.slice(0, 10);
   const sameDay = safeArchive.lastSwitchDate === dateKey;
