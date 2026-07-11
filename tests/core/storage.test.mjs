@@ -123,6 +123,43 @@ test("importSave preserves unknown legacy achievements unchanged", () => {
   assert.deepEqual(imported.achievements, [unknownLegacyAchievement]);
 });
 
+test("archive state and unknown legacy achievements survive an export-import round trip", () => {
+  const save = createEmptySave("2026-06-21T20:24:00+08:00");
+  const archive = {
+    version: 2,
+    scanStatus: "review",
+    candidateIds: ["candidate-one", "candidate-two"],
+    dismissedIds: ["dismissed-one"],
+    firstNightEnteredAt: "2026-07-10T16:00:00.000Z",
+    lastSwitchDate: "2026-07-11",
+    switchCount: 3,
+    lastRecovery: {
+      recoveredAt: "2026-07-11T00:00:00.000Z",
+      source: "archive-scan",
+    },
+    futureArchiveField: { enabled: true },
+  };
+  const unknownLegacyAchievement = {
+    id: "unknown-legacy-achievement",
+    metadata: {
+      source: "legacy-save",
+      context: { season: "night" },
+    },
+    presentation: {
+      hidden: true,
+      featured: false,
+      flags: { monochrome: true },
+    },
+  };
+  save.achievementArchive = archive;
+  save.achievements = [unknownLegacyAchievement];
+
+  const imported = importSave(exportSave(save));
+
+  assert.deepEqual(imported.achievementArchive, archive);
+  assert.deepEqual(imported.achievements, [unknownLegacyAchievement]);
+});
+
 test("loadLocalSave returns empty save when default localStorage is inaccessible", () => {
   withThrowingLocalStorage(() => {
     const save = loadLocalSave();
