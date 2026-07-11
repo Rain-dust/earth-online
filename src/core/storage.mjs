@@ -1,3 +1,8 @@
+import {
+  createEmptyAchievementArchive,
+  normalizeAchievementArchive,
+} from "./achievements.mjs";
+
 export const SAVE_FORMAT = "earth-online-save-v1";
 export const STORAGE_KEY = "earth-online-save-v1";
 
@@ -13,6 +18,7 @@ export function createEmptySave(exportedAt = new Date().toISOString()) {
     dailyTasks: [],
     taskHistory: [],
     achievements: [],
+    achievementArchive: createEmptyAchievementArchive(),
     titles: [],
     tags: [],
     realLifeAchievements: [],
@@ -124,6 +130,7 @@ function mergeWithDefaults(save, defaults) {
     dailyTasks: Array.isArray(save.dailyTasks) ? save.dailyTasks : defaults.dailyTasks,
     taskHistory: Array.isArray(save.taskHistory) ? save.taskHistory : defaults.taskHistory,
     achievements: Array.isArray(save.achievements) ? save.achievements : defaults.achievements,
+    achievementArchive: normalizeAchievementArchive(save.achievementArchive),
     titles: Array.isArray(save.titles) ? save.titles : defaults.titles,
     tags: Array.isArray(save.tags) ? save.tags : defaults.tags,
     correctionLog: Array.isArray(save.correctionLog) ? save.correctionLog : defaults.correctionLog,

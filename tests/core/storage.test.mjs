@@ -20,6 +20,16 @@ test("createEmptySave returns versioned readable save shell", () => {
   assert.deepEqual(save.profile, null);
   assert.deepEqual(save.dailyTasks, []);
   assert.deepEqual(save.correctionLog, []);
+  assert.deepEqual(save.achievementArchive, {
+    version: 1,
+    scanStatus: "pending",
+    candidateIds: [],
+    dismissedIds: [],
+    firstNightEnteredAt: null,
+    lastSwitchDate: null,
+    switchCount: 0,
+    lastRecovery: null,
+  });
 });
 
 test("exportSave returns stable pretty JSON", () => {
@@ -39,6 +49,55 @@ test("importSave rejects unknown formats without mutating current save", () => {
     /Unsupported save format/,
   );
   assert.equal(current.format, SAVE_FORMAT);
+});
+
+test("importSave gives old saves a default achievement archive", () => {
+  const oldSave = createEmptySave("2026-06-21T20:24:00+08:00");
+  delete oldSave.achievementArchive;
+
+  const imported = importSave(JSON.stringify(oldSave));
+
+  assert.deepEqual(imported.achievementArchive, {
+    version: 1,
+    scanStatus: "pending",
+    candidateIds: [],
+    dismissedIds: [],
+    firstNightEnteredAt: null,
+    lastSwitchDate: null,
+    switchCount: 0,
+    lastRecovery: null,
+  });
+});
+
+test("importSave normalizes malformed achievement archive fields", () => {
+  const save = createEmptySave("2026-06-21T20:24:00+08:00");
+  save.achievementArchive = {
+    scanStatus: "complete",
+    candidateIds: [" first ", "first", "", 12],
+    dismissedIds: "not-an-array",
+    switchCount: 2,
+  };
+
+  const imported = importSave(JSON.stringify(save));
+
+  assert.equal(imported.achievementArchive.scanStatus, "complete");
+  assert.deepEqual(imported.achievementArchive.candidateIds, ["first"]);
+  assert.deepEqual(imported.achievementArchive.dismissedIds, []);
+  assert.equal(imported.achievementArchive.switchCount, 2);
+});
+
+test("importSave preserves unknown legacy achievements unchanged", () => {
+  const save = createEmptySave("2026-06-21T20:24:00+08:00");
+  const unknownLegacyAchievement = {
+    id: "legacy-achievement-that-is-not-in-the-catalog",
+    unlockedAt: "2025-12-31T16:00:00.000Z",
+    metadata: { source: "legacy-save" },
+  };
+  save.achievements = [unknownLegacyAchievement];
+
+  const imported = importSave(JSON.stringify(save));
+
+  assert.deepEqual(imported.achievements, [unknownLegacyAchievement]);
 });
 
 test("loadLocalSave returns empty save when default localStorage is inaccessible", () => {
