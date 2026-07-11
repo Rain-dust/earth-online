@@ -11,6 +11,11 @@ import {
   STORAGE_KEY,
 } from "../../src/core/storage.mjs";
 
+test("save format and storage key remain at v1", () => {
+  assert.equal(SAVE_FORMAT, "earth-online-save-v1");
+  assert.equal(STORAGE_KEY, "earth-online-save-v1");
+});
+
 test("createEmptySave returns versioned readable save shell", () => {
   const save = createEmptySave("2026-06-21T20:24:00+08:00");
 
@@ -39,6 +44,24 @@ test("exportSave returns stable pretty JSON", () => {
   assert.match(json, /"format": "earth-online-save-v1"/);
   assert.match(json, /"systemNote": "旧存档仍在运行"/);
   assert.equal(JSON.parse(json).format, SAVE_FORMAT);
+});
+
+test("exportSave gives saves without an achievement archive the default archive", () => {
+  const oldSave = createEmptySave("2026-06-21T20:24:00+08:00");
+  delete oldSave.achievementArchive;
+
+  const exported = JSON.parse(exportSave(oldSave));
+
+  assert.deepEqual(exported.achievementArchive, {
+    version: 1,
+    scanStatus: "pending",
+    candidateIds: [],
+    dismissedIds: [],
+    firstNightEnteredAt: null,
+    lastSwitchDate: null,
+    switchCount: 0,
+    lastRecovery: null,
+  });
 });
 
 test("importSave rejects unknown formats without mutating current save", () => {
