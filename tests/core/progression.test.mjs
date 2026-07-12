@@ -47,14 +47,16 @@ test("unlockRuntimeAchievements unlocks NPC filter achievement", () => {
 
   const next = unlockRuntimeAchievements(save, "2026-06-21T20:24:00+08:00");
 
-  assert.ok(next.achievements.some((item) => item.id === "npc_filter"));
+  assert.ok(next.achievements.some((item) => item.achievementId === "npc_filter"));
   assert.deepEqual(next.achievements[0], {
-    id: "npc_filter",
+    achievementId: "npc_filter",
     label: "拒绝无效消耗",
-    rarity: getRarity("npc_filter", 4.0, 12.0),
-    rarityLabel: "全服",
+    rarityPercent: getRarity("npc_filter", 4.0, 12.0),
     source: "runtime",
     unlockedAt: "2026-06-21T20:24:00+08:00",
+    hidden: false,
+    displayable: true,
+    spotlightAllowed: true,
   });
   assert.ok(next.titles.includes("NPC过滤器"));
   assert.ok(next.tags.includes("NPC过滤器"));
@@ -87,4 +89,21 @@ test("unlockRuntimeAchievements avoids duplicate NPC filter rewards", () => {
   assert.equal(next.titles.filter((title) => title === "NPC过滤器").length, 1);
   assert.equal(next.tags.filter((tag) => tag === "NPC过滤器").length, 1);
   assert.equal(next.achievements[0].unlockedAt, "2026-06-21T20:24:00+08:00");
+});
+
+test("canonical runtime unlocks respect legacy duplicate records", () => {
+  const save = {
+    achievements: [{ id: "npc_filter", source: "runtime", unlockedAt: "legacy" }],
+    titles: ["NPC过滤器"],
+    tags: ["NPC过滤器"],
+    taskHistory: Array.from({ length: 3 }, () => ({
+      category: "npc_noise_reduction",
+      completed: true,
+    })),
+  };
+
+  const next = unlockRuntimeAchievements(save, "2026-06-21T20:25:00+08:00");
+
+  assert.equal(next.achievements.length, 1);
+  assert.equal(next.achievements[0].unlockedAt, "legacy");
 });

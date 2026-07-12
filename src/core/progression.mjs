@@ -1,3 +1,5 @@
+import { getAchievementInstanceId } from "./achievements.mjs";
+
 const EXP_CURVE_FACTOR = 16;
 
 export function getLevelFromExp(exp) {
@@ -50,18 +52,22 @@ export function unlockRuntimeAchievements(save, now = new Date().toISOString()) 
   const achievements = asArray(save?.achievements);
   const titles = asArray(save?.titles);
   const tags = asArray(save?.tags);
-  const hasNpcFilterAchievement = achievements.some((achievement) => achievement?.id === "npc_filter");
+  const hasNpcFilterAchievement = achievements.some(
+    (achievement) => getAchievementInstanceId(achievement) === "npc_filter",
+  );
   const nextAchievements = hasNpcFilterAchievement
     ? achievements
     : [
       ...achievements,
       {
-        id: "npc_filter",
+        achievementId: "npc_filter",
         label: "拒绝无效消耗",
-        rarity: getRarity("npc_filter", 4.0, 12.0),
-        rarityLabel: "全服",
+        rarityPercent: getRarity("npc_filter", 4.0, 12.0),
         source: "runtime",
         unlockedAt: now,
+        hidden: false,
+        displayable: true,
+        spotlightAllowed: true,
       },
     ];
   const nextTitles = appendUnique(titles, "NPC过滤器");

@@ -9,6 +9,7 @@ import {
   completeOldSaveReview,
   confirmOldSaveAchievement,
   dismissOldSaveAchievement,
+  getAchievementInstanceId,
   normalizeAchievementArchive,
   restoreDismissedOldSaveAchievement,
   revokeOldSaveAchievement,
@@ -18,6 +19,11 @@ import { getNightTransitionDuration, recordNightSwitch } from "../core/night-tra
 import { createEarthScene } from "../scene/earth-scene.mjs";
 import { renderHome } from "../ui/home.mjs";
 import { renderInitTerminal } from "../ui/init-terminal.mjs";
+import {
+  createAchievementToastQueue,
+  getNewAchievementIds,
+  showAchievementToast,
+} from "../ui/achievement-toast.mjs";
 import { renderNightArchive } from "../ui/night-archive.mjs";
 import { renderOldSaveReview, renderRecoveryCeremony } from "../ui/old-save-review.mjs";
 import { renderSystemPanel } from "../ui/system-panel.mjs";
@@ -35,6 +41,13 @@ export function createApp() {
     archiveSelectedId: null,
     transitionId: 0,
   };
+  const achievementToastQueue = createAchievementToastQueue({
+    show(id) {
+      const instance = (Array.isArray(state.save?.achievements) ? state.save.achievements : [])
+        .find((item) => getAchievementInstanceId(item) === id);
+      return showAchievementToast(dom.body, { id, instance });
+    },
+  });
   let focusAttemptId = 0;
 
   function hideHomeOverlay() {
@@ -100,7 +113,9 @@ export function createApp() {
     setSystemVisible(dom.systemRoot, true);
 
     const handleChange = (nextSave) => {
+      const previousAchievements = state.save?.achievements;
       state.save = saveLocalSave(nextSave);
+      enqueueRuntimeAchievementNotices(previousAchievements, state.save?.achievements);
       renderPanel(handleChange);
     };
 
@@ -264,6 +279,16 @@ export function createApp() {
 
   function clearNightClasses() {
     dom.systemRoot.classList.remove("is-night", "is-transitioning-night", "is-transitioning-day");
+  }
+
+  function enqueueRuntimeAchievementNotices(previous, next) {
+    const instances = Array.isArray(next) ? next : [];
+    for (const id of getNewAchievementIds(previous, instances)) {
+      const instance = instances.find((item) => getAchievementInstanceId(item) === id);
+      if (instance?.source !== "old_save_confirmed") {
+        achievementToastQueue.enqueue(id).catch(() => {});
+      }
+    }
   }
 
   function exitToHome() {

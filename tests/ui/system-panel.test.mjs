@@ -208,7 +208,7 @@ test("completePanelTask unlocks NPC filter runtime rewards", () => {
 
   const next = completePanelTask(save, task.id, "2026-06-21T12:00:00.000Z");
 
-  assert.ok(next.achievements.some((item) => item.id === "npc_filter"));
+  assert.ok(next.achievements.some((item) => item.achievementId === "npc_filter"));
   assert.ok(next.titles.includes("NPC过滤器"));
   assert.ok(next.tags.includes("NPC过滤器"));
 });
