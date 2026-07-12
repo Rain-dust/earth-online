@@ -23,7 +23,12 @@ test("archive entry announces pending old-save review", () => {
 test("archive entry falls back to the known record count", () => {
   assert.deepEqual(getArchiveEntryState({
     achievementArchive: { scanStatus: "complete", candidateIds: [] },
-    achievements: [{ id: "legacy" }, { achievementId: "canonical" }, null],
+    achievements: [
+      { id: "academic-complete" },
+      { achievementId: "first-job" },
+      { achievementId: "unknown" },
+      null,
+    ],
   }), {
     label: "进入夜间档案馆",
     badge: "2 项记录",

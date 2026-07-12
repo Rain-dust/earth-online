@@ -1,5 +1,6 @@
 import { STATUS_LABELS, TASK_CATEGORIES } from "../core/constants.mjs";
 import { getAchievementInstanceId, normalizeAchievementArchive } from "../core/achievements.mjs";
+import { getAchievementDefinition } from "../core/achievement-catalog.mjs";
 import { applyExp, unlockRuntimeAchievements } from "../core/progression.mjs";
 import { completeTask, generateDailyTasks, localizeTaskCopy } from "../core/tasks.mjs";
 
@@ -157,7 +158,7 @@ export function getArchiveEntryState(save) {
   const archive = normalizeAchievementArchive(save?.achievementArchive);
   const confirmedIds = new Set(asArray(save?.achievements)
     .map(getAchievementInstanceId)
-    .filter(Boolean));
+    .filter((id) => getAchievementDefinition(id)));
 
   if (archive.scanStatus !== "complete") {
     const pendingCount = archive.candidateIds.filter((id) => !confirmedIds.has(id)).length;

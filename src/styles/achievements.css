@@ -9,8 +9,10 @@
 }
 
 .night-archive {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   width: min(72rem, calc(100vw - 2rem));
-  max-height: calc(100svh - 2rem);
+  height: min(48rem, calc(100svh - 2rem));
   overflow: hidden;
   border: 1px solid rgba(134, 199, 214, 0.24);
   border-radius: 8px;
@@ -171,7 +173,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.62fr) minmax(18rem, 0.78fr);
   min-height: 0;
-  height: min(42rem, calc(100svh - 13.2rem));
+  height: auto;
 }
 
 .achievement-list {
@@ -446,30 +448,47 @@
 @media (max-width: 820px) {
   .night-archive {
     width: min(44rem, calc(100vw - 1.2rem));
-    max-height: calc(100svh - 1.2rem);
+    height: calc(100svh - 1.2rem);
   }
 
   .archive-workspace {
+    display: flex;
+    flex-direction: column;
     grid-template-columns: 1fr;
-    height: calc(100svh - 13rem);
+    height: auto;
+    overflow-x: hidden;
     overflow-y: auto;
   }
 
   .achievement-list {
+    flex: 0 0 auto;
+    order: 2;
     overflow: visible;
   }
 
   .achievement-detail {
+    flex: 0 0 auto;
+    order: 1;
+    max-height: min(28rem, 56svh);
     border-top: 1px solid rgba(134, 199, 214, 0.16);
     border-left: 0;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .achievement-detail.is-empty {
+    display: none;
   }
 }
 
 @media (max-width: 560px) {
+  #system-root.is-night {
+    padding: 0.4rem;
+  }
+
   .night-archive {
-    width: calc(100vw - 0.8rem);
-    max-height: calc(100svh - 0.8rem);
+    width: 100%;
+    height: calc(100svh - 0.8rem);
   }
 
   .archive-topbar {
@@ -521,7 +540,7 @@
   }
 
   .archive-workspace {
-    height: calc(100svh - 12.2rem);
+    height: auto;
   }
 
   .achievement-list {
@@ -922,7 +941,7 @@
 
 @media (max-width: 680px) {
   .old-save-review {
-    width: calc(100vw - 0.8rem);
+    width: 100%;
     height: calc(100svh - 0.8rem);
   }
 
