@@ -111,7 +111,7 @@ function define(id, title, description, category, rarityPercent, oldSaveSignals 
     description,
     category,
     rarityPercent,
-    iconAsset: `./assets/achievements/${id}.png`,
+    iconAsset: `./assets/achievements/runtime/${id}.png`,
     oldSaveSignals: Object.freeze(oldSaveSignals),
   });
 }

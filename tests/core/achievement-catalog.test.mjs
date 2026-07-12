@@ -42,7 +42,7 @@ test("catalog definitions expose immutable metadata and strong old-save signals"
     assert.notEqual(definition.description.trim(), "");
     assert.equal(typeof definition.category, "string");
     assert.notEqual(definition.category.trim(), "");
-    assert.equal(definition.iconAsset, `./assets/achievements/${definition.id}.png`);
+    assert.equal(definition.iconAsset, `./assets/achievements/runtime/${definition.id}.png`);
     assert.equal(Object.isFrozen(definition), true);
     assert.equal(Object.isFrozen(definition.oldSaveSignals), true);
   }
