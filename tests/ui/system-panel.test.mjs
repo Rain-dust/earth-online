@@ -2,12 +2,33 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   completePanelTask,
+  getArchiveEntryState,
   getDailySyncStats,
   getDailyTasksForSave,
   getOnlineStreakDays,
   getTaskActionState,
   getTaskCompletionMessage,
 } from "../../src/ui/system-panel.mjs";
+
+test("archive entry announces pending old-save review", () => {
+  assert.deepEqual(getArchiveEntryState({
+    achievementArchive: { scanStatus: "review", candidateIds: ["academic-complete"] },
+    achievements: [],
+  }), {
+    label: "进入夜间档案馆",
+    badge: "1 条待确认",
+  });
+});
+
+test("archive entry falls back to the known record count", () => {
+  assert.deepEqual(getArchiveEntryState({
+    achievementArchive: { scanStatus: "complete", candidateIds: [] },
+    achievements: [{ id: "legacy" }, { achievementId: "canonical" }, null],
+  }), {
+    label: "进入夜间档案馆",
+    badge: "2 项记录",
+  });
+});
 
 test("getDailyTasksForSave reuses today's tasks without changing save", () => {
   const today = "2026-06-21";

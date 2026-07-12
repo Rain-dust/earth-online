@@ -1,4 +1,5 @@
 import { STATUS_LABELS, TASK_CATEGORIES } from "../core/constants.mjs";
+import { getAchievementInstanceId, normalizeAchievementArchive } from "../core/achievements.mjs";
 import { applyExp, unlockRuntimeAchievements } from "../core/progression.mjs";
 import { completeTask, generateDailyTasks, localizeTaskCopy } from "../core/tasks.mjs";
 
@@ -152,9 +153,30 @@ export function getTaskActionState(task, { allowCompletion = true } = {}) {
   return { disabled: false, label: "同步" };
 }
 
+export function getArchiveEntryState(save) {
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+  const confirmedIds = new Set(asArray(save?.achievements)
+    .map(getAchievementInstanceId)
+    .filter(Boolean));
+
+  if (archive.scanStatus !== "complete") {
+    const pendingCount = archive.candidateIds.filter((id) => !confirmedIds.has(id)).length;
+    return {
+      label: "进入夜间档案馆",
+      badge: pendingCount > 0 ? `${pendingCount} 条待确认` : "旧存档待扫描",
+    };
+  }
+
+  return {
+    label: "进入夜间档案馆",
+    badge: `${confirmedIds.size} 项记录`,
+  };
+}
+
 export function renderSystemPanel(root, {
   save,
   onChange,
+  onOpenArchive,
   onExit,
   persistGeneratedTasks = true,
 }) {
@@ -173,6 +195,7 @@ export function renderSystemPanel(root, {
   const statusLabel = getStatusLabel(activeSave?.currentStatus);
   const scanMessage = systemMessage || "少跟 NPC 纠缠，多推进主线。";
   const lastSyncedTaskId = root.dataset.lastSyncedTaskId || "";
+  const archiveEntry = getArchiveEntryState(activeSave);
 
   root.replaceChildren();
 
@@ -190,7 +213,13 @@ export function renderSystemPanel(root, {
         <span>${escapeHtml(getMorningTimeLabel())}</span>
         <span>${escapeHtml(statusLabel)}</span>
       </div>
-      <button class="panel-exit" type="button" aria-label="退出系统面板">×</button>
+      <div class="panel-controls">
+        <button class="archive-entry" type="button" aria-label="${escapeHtml(archiveEntry.label)}" title="夜间档案馆">
+          <span aria-hidden="true">◐</span>
+          <small>${escapeHtml(archiveEntry.badge)}</small>
+        </button>
+        <button class="panel-exit" type="button" aria-label="退出系统面板">×</button>
+      </div>
     </header>
 
     <div class="panel-workspace">
@@ -255,6 +284,9 @@ export function renderSystemPanel(root, {
 
   panel.querySelector(".panel-exit").addEventListener("click", () => {
     onExit?.();
+  });
+  panel.querySelector(".archive-entry").addEventListener("click", () => {
+    onOpenArchive?.();
   });
   panel.querySelector("[data-action='export']").addEventListener("click", () => {
     panel.dispatchEvent(new CustomEvent("earth-online-export", { bubbles: true }));
