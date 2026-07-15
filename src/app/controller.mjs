@@ -16,6 +16,26 @@ import {
   setAchievementPresentation,
 } from "../core/achievements.mjs";
 import { getNightTransitionDuration, recordNightSwitch } from "../core/night-transition.mjs";
+import {
+  deleteFreeRecord,
+  ensureDailyRun,
+  recordAdditionalMainProgress,
+  refreshDailyMainAction,
+  replaceDailyMaintenance,
+  saveFreeRecord,
+  setDailyStatus,
+  syncMainAction,
+  syncMaintenance,
+} from "../core/daily-run.mjs";
+import { getLocalDateKey } from "../core/local-date.mjs";
+import {
+  abandonMainQuest,
+  completeMainQuest,
+  createMainQuest,
+  pauseMainQuest,
+  setMainQuestAction,
+  switchMainQuest,
+} from "../core/main-quest.mjs";
 import { createEarthScene } from "../scene/earth-scene.mjs";
 import { renderHome } from "../ui/home.mjs";
 import { renderInitTerminal } from "../ui/init-terminal.mjs";
@@ -28,6 +48,7 @@ import { renderNightArchive } from "../ui/night-archive.mjs";
 import { renderOldSaveReview, renderRecoveryCeremony } from "../ui/old-save-review.mjs";
 import { renderSystemPanel } from "../ui/system-panel.mjs";
 import { getDom, setSystemVisible } from "./dom.mjs";
+import { applyPanelDayUpdate } from "./panel-day.mjs";
 
 export function createApp() {
   const dom = getDom();
@@ -106,30 +127,89 @@ export function createApp() {
     });
   }
 
-  function showPanel({ persistGeneratedTasks = true } = {}) {
+  function showPanel() {
     state.mode = "panel";
     clearNightClasses();
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
+    const today = getLocalDateKey();
+    const preparedSave = ensureDailyRun(state.save, today);
+
+    if (preparedSave !== state.save) {
+      state.save = saveLocalSave(preparedSave);
+    }
 
     const handleChange = (nextSave) => {
+      if (nextSave === state.save) return;
       const previousAchievements = state.save?.achievements;
       state.save = saveLocalSave(nextSave);
       enqueueRuntimeAchievementNotices(previousAchievements, state.save?.achievements);
-      renderPanel(handleChange);
+      showPanel();
     };
 
-    renderPanel(handleChange, { persistGeneratedTasks });
+    renderPanel(handleChange, today);
   }
 
-  function renderPanel(handleChange, { persistGeneratedTasks = true } = {}) {
+  function renderPanel(handleChange, today) {
     dom.systemRoot.replaceChildren();
+
+    const updateDaily = (updater) => {
+      const updated = applyPanelDayUpdate(state.save, today, updater);
+      handleChange(updated.save);
+    };
+
+    const changeQuest = (updater) => {
+      const currentDate = getLocalDateKey();
+      const updated = updater(state.save);
+      const prepared = ensureDailyRun(updated, currentDate);
+      const nextSave = refreshDailyMainAction(prepared, currentDate);
+      handleChange(nextSave);
+    };
+
     renderSystemPanel(dom.systemRoot, {
       save: state.save,
-      onChange: handleChange,
+      today,
+      onStatusChange(status) {
+        updateDaily((current, date) => setDailyStatus(current, date, status));
+      },
+      onMainSync() {
+        updateDaily(syncMainAction);
+      },
+      onMainProgress(text) {
+        updateDaily((current, date) => recordAdditionalMainProgress(current, date, text));
+      },
+      onMaintenanceSync() {
+        updateDaily(syncMaintenance);
+      },
+      onMaintenanceReplace() {
+        updateDaily(replaceDailyMaintenance);
+      },
+      onFreeRecordSave(input) {
+        updateDaily((current, date) => saveFreeRecord(current, date, input));
+      },
+      onFreeRecordDelete() {
+        updateDaily(deleteFreeRecord);
+      },
+      onMainQuestCreate(input) {
+        changeQuest((current) => createMainQuest(current, input));
+      },
+      onMainQuestActionChange(text) {
+        changeQuest((current) => setMainQuestAction(current, text));
+      },
+      onMainQuestPause() {
+        changeQuest((current) => pauseMainQuest(current));
+      },
+      onMainQuestComplete() {
+        changeQuest((current) => completeMainQuest(current));
+      },
+      onMainQuestSwitch(input) {
+        changeQuest((current) => switchMainQuest(current, input));
+      },
+      onMainQuestAbandon() {
+        changeQuest((current) => abandonMainQuest(current));
+      },
       onOpenArchive: handleDayNightControl,
       onExit: exitToHome,
-      persistGeneratedTasks,
     });
   }
 

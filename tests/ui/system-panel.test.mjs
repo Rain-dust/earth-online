@@ -1,14 +1,123 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
+  buildMorningView,
   completePanelTask,
   getArchiveEntryState,
   getDailySyncStats,
   getDailyTasksForSave,
+  getMorningPanelMarkup,
   getOnlineStreakDays,
   getTaskActionState,
   getTaskCompletionMessage,
 } from "../../src/ui/system-panel.mjs";
+
+test("buildMorningView makes the main action primary and exposes three slots", () => {
+  const save = {
+    currentStatus: "stable_operation",
+    mainQuest: { id: "quest-1", title: "完成 v0.3", status: "active" },
+    dailyRuns: [{
+      date: "2026-07-13",
+      status: "stable_operation",
+      mainAction: { text: "完成清晨面板", syncedAt: null },
+      maintenance: { itemId: "drink-water", title: "喝一杯水", completedAt: null },
+      freeRecord: null,
+    }],
+    level: { value: 22, exp: 7414, nextLevelExp: 7744, progress: 0.9 },
+    titles: ["观察者"],
+    settings: { selectedTitle: "观察者" },
+  };
+
+  const view = buildMorningView(save, "2026-07-13");
+
+  assert.deepEqual(view.actions.map((action) => action.type), ["main", "maintenance", "freeRecord"]);
+  assert.equal(view.actions[0].primary, true);
+  assert.equal(view.actions[0].title, "完成清晨面板");
+  assert.equal(view.maxDailyExp, 36);
+  assert.equal(view.level.value, 22);
+});
+
+test("buildMorningView exposes an explicit empty main quest state", () => {
+  const view = buildMorningView({
+    currentStatus: "stable_operation",
+    mainQuest: null,
+    dailyRuns: [{
+      date: "2026-07-13",
+      status: "stable_operation",
+      mainAction: null,
+      maintenance: { itemId: "drink-water", title: "喝一杯水", completedAt: null },
+      freeRecord: null,
+    }],
+    level: { value: 1, exp: 0, nextLevelExp: 16, progress: 0 },
+  }, "2026-07-13");
+
+  assert.equal(view.actions[0].empty, true);
+  assert.equal(view.actions[0].title, "当前没有激活主线");
+  assert.equal(view.actions[0].actionLabel, "设定主线");
+});
+
+test("free record reward availability follows the daily reward ledger", () => {
+  const base = {
+    currentStatus: "stable_operation",
+    mainQuest: null,
+    dailyRuns: [{
+      date: "2026-07-13",
+      status: "stable_operation",
+      mainAction: null,
+      maintenance: { itemId: "drink-water", title: "喝一杯水", completedAt: null },
+      freeRecord: { text: "已经留下记录", important: false },
+    }],
+    level: { value: 1, exp: 8, nextLevelExp: 16, progress: 0.5 },
+  };
+
+  assert.equal(buildMorningView({ ...base, rewardLedger: [] }, "2026-07-13").actions[2].rewardAvailable, true);
+  assert.equal(buildMorningView({
+    ...base,
+    rewardLedger: [{ key: "2026-07-13:free-record", exp: 8 }],
+  }, "2026-07-13").actions[2].rewardAvailable, false);
+});
+
+test("morning markup gives one main action and two quieter support slots", () => {
+  const view = buildMorningView({
+    currentStatus: "stable_operation",
+    mainQuest: { title: "完成 Earth Online v0.3", status: "active" },
+    dailyRuns: [{
+      date: "2026-07-13",
+      status: "stable_operation",
+      mainAction: { text: "完成清晨面板", syncedAt: null, additionalProgress: [] },
+      maintenance: { title: "喝一杯水", completedAt: null, replacementCount: 0 },
+      freeRecord: null,
+    }],
+    level: { value: 22, exp: 7414, nextLevelExp: 7744, progress: 0.9 },
+  }, "2026-07-13");
+
+  const markup = getMorningPanelMarkup(view, {
+    nickname: "未命名玩家",
+    selectedTitle: "观察者",
+    tags: ["INTP"],
+    archiveEntry: { label: "进入夜间档案馆", badge: "12 项记录" },
+  });
+
+  assert.match(markup, /<section class="daily-runtime" aria-label="今日运行">/);
+  assert.match(markup, /<article class="main-action/);
+  assert.match(markup, /<article class="maintenance-action/);
+  assert.match(markup, /<div class="free-record-slot/);
+  assert.doesNotMatch(markup, /\+20|\+8/);
+});
+
+test("hidden inline forms remain collapsed until the player opens them", async () => {
+  const styles = await readFile(new URL("../../src/styles.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
+});
+
+test("mobile free record editing expands instead of clipping its actions", async () => {
+  const styles = await readFile(new URL("../../src/styles.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.free-record-slot\.is-editing\s*\{[^}]*min-height:\s*11rem;/s);
+  assert.match(styles, /\.free-record-slot\.is-editing \.free-record-form input[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+});
 
 test("archive entry announces pending old-save review", () => {
   assert.deepEqual(getArchiveEntryState({

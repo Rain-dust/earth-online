@@ -44,6 +44,42 @@ export function ensureDailyRun(save, date) {
   };
 }
 
+export function refreshDailyMainAction(save, date) {
+  const run = findRun(save, date);
+
+  if (!run || run.mainAction?.syncedAt) {
+    return save;
+  }
+
+  const quest = save?.mainQuest?.status === "active" ? save.mainQuest : null;
+
+  if (!quest) {
+    return run.mainAction === null
+      ? save
+      : updateRun(save, date, (current) => ({ ...current, mainAction: null }));
+  }
+
+  const nextAction = {
+    questId: quest.id,
+    actionId: quest.currentAction?.id || null,
+    text: String(quest.currentAction?.text || quest.title).trim(),
+    syncedAt: null,
+    additionalProgress: run.mainAction?.questId === quest.id
+      ? asArray(run.mainAction?.additionalProgress)
+      : [],
+  };
+
+  if (
+    run.mainAction?.questId === nextAction.questId
+    && run.mainAction?.actionId === nextAction.actionId
+    && run.mainAction?.text === nextAction.text
+  ) {
+    return save;
+  }
+
+  return updateRun(save, date, (current) => ({ ...current, mainAction: nextAction }));
+}
+
 export function syncMainAction(save, date, now = new Date().toISOString()) {
   const run = findRun(save, date);
 

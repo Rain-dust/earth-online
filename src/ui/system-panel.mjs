@@ -3,10 +3,13 @@ import { getAchievementInstanceId, normalizeAchievementArchive } from "../core/a
 import { getAchievementDefinition } from "../core/achievement-catalog.mjs";
 import { applyExp, unlockRuntimeAchievements } from "../core/progression.mjs";
 import { completeTask, generateDailyTasks, localizeTaskCopy } from "../core/tasks.mjs";
+import { openMainQuestDialog } from "./main-quest-dialog.mjs";
+import { mountStatusControl } from "./status-control.mjs";
 
 const DEFAULT_NICKNAME = "未命名玩家";
 const DEFAULT_TITLE = "地球 Online 观察员";
 const PANEL_TAG_LIMIT = 5;
+const MAX_DAILY_EXP = 36;
 
 const TASK_COMPLETION_COPY = Object.freeze({
   [TASK_CATEGORIES.INPUT]: "已记录：一次认知维护完成。",
@@ -16,6 +19,56 @@ const TASK_COMPLETION_COPY = Object.freeze({
   [TASK_CATEGORIES.ENVIRONMENT]: "已同步：环境缓存已释放。",
   [TASK_CATEGORIES.MAIN_QUEST]: "已记录：主线推进了一小格。",
 });
+
+export function buildMorningView(save, date) {
+  const run = asArray(save?.dailyRuns).find((item) => item?.date === date) || null;
+  const mainAction = run?.mainAction || null;
+  const maintenance = run?.maintenance || null;
+  const freeRecord = run?.freeRecord || null;
+  const actions = [
+    {
+      type: "main",
+      primary: true,
+      empty: !mainAction,
+      title: mainAction?.text || "当前没有激活主线",
+      context: save?.mainQuest?.title || "MAIN QUEST",
+      completed: Boolean(mainAction?.syncedAt),
+      actionLabel: !mainAction ? "设定主线" : mainAction.syncedAt ? "已同步" : "同步",
+      additionalProgress: asArray(mainAction?.additionalProgress),
+    },
+    {
+      type: "maintenance",
+      title: maintenance?.title || "正在生成维护建议",
+      completed: Boolean(maintenance?.completedAt),
+      actionLabel: maintenance?.completedAt ? "已同步" : "同步",
+      canReplace: Boolean(maintenance) && !maintenance.completedAt
+        && Number(maintenance.replacementCount || 0) < 1,
+    },
+    {
+      type: "freeRecord",
+      title: freeRecord?.text || "留下一条今日记录",
+      completed: Boolean(freeRecord),
+      important: freeRecord?.important === true,
+      actionLabel: freeRecord ? "编辑" : "记录",
+      rewardAvailable: !asArray(save?.rewardLedger)
+        .some((entry) => entry?.key === `${date}:free-record`),
+    },
+  ];
+  const completed = actions.filter((action) => action.completed).length;
+
+  return {
+    date,
+    status: run?.status || save?.currentStatus || "stable_operation",
+    level: save?.level || { value: 1, exp: 0, nextLevelExp: 16, progress: 0 },
+    actions,
+    maxDailyExp: MAX_DAILY_EXP,
+    sync: {
+      completed,
+      total: actions.length,
+      percent: Math.round((completed / actions.length) * 100),
+    },
+  };
+}
 
 export function getDailyTasksForSave(save, today, { persistGeneratedTasks = true } = {}) {
   const dailyTasks = Array.isArray(save?.dailyTasks) ? save.dailyTasks : [];
@@ -174,163 +227,281 @@ export function getArchiveEntryState(save) {
   };
 }
 
-export function renderSystemPanel(root, {
-  save,
-  onChange,
-  onOpenArchive,
-  onExit,
-  persistGeneratedTasks = true,
-}) {
-  const systemMessage = root.dataset.systemMessage || "";
-  const today = new Date().toISOString().slice(0, 10);
-  const daily = getDailyTasksForSave(save, today, { persistGeneratedTasks });
-  const activeSave = daily.save;
-  const tags = getVisibleTags(activeSave);
-  const level = activeSave?.level || {};
-  const progress = getProgressPercent(level);
-  const syncStats = getDailySyncStats(daily.tasks);
-  const streakDays = getOnlineStreakDays(activeSave, today);
-  const allowTaskCompletion = persistGeneratedTasks || !daily.generated;
-  const nickname = activeSave?.profile?.nickname || DEFAULT_NICKNAME;
-  const selectedTitle = getSelectedTitle(activeSave);
-  const statusLabel = getStatusLabel(activeSave?.currentStatus);
-  const scanMessage = systemMessage || "少跟 NPC 纠缠，多推进主线。";
-  const lastSyncedTaskId = root.dataset.lastSyncedTaskId || "";
-  const archiveEntry = getArchiveEntryState(activeSave);
+export function getMorningPanelMarkup(view, {
+  nickname = DEFAULT_NICKNAME,
+  selectedTitle = DEFAULT_TITLE,
+  tags = [],
+  archiveEntry = { label: "进入夜间档案馆", badge: "旧存档待扫描" },
+  systemMessage = "",
+  expFlash = null,
+} = {}) {
+  const [main, maintenance, freeRecord] = view.actions;
+  const progress = getProgressPercent(view.level);
 
-  root.replaceChildren();
-
-  const panel = document.createElement("section");
-  panel.className = "system-panel morning-brief";
-  panel.style.setProperty("--sync-percent", `${syncStats.percent}%`);
-  panel.setAttribute("aria-label", "地球 Online 清晨系统简报");
-  panel.innerHTML = `
+  return `
     <header class="panel-topbar">
       <div class="panel-brand" aria-label="地球 Online">
         <span class="brand-mark" aria-hidden="true"></span>
         <strong>地球 Online</strong>
       </div>
-      <div class="panel-meta" aria-label="系统状态">
+      <div class="panel-meta">
         <span>${escapeHtml(getMorningTimeLabel())}</span>
-        <span>${escapeHtml(statusLabel)}</span>
+        <div data-status-host></div>
       </div>
       <div class="panel-controls">
         <button class="archive-entry" type="button" aria-label="${escapeHtml(archiveEntry.label)}" title="夜间档案馆">
-          <span aria-hidden="true">◐</span>
+          <i data-lucide="moon-star" aria-hidden="true"></i>
           <small>${escapeHtml(archiveEntry.badge)}</small>
         </button>
-        <button class="panel-exit" type="button" aria-label="退出系统面板">×</button>
+        <button class="panel-exit icon-button" type="button" aria-label="退出系统面板" title="退出">
+          <i data-lucide="x" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
 
-    <div class="panel-workspace">
-      <section class="scan-brief" aria-label="今日状态扫描">
-        <span class="section-kicker">今日状态扫描</span>
+    <section class="morning-identity" aria-label="玩家状态">
+      <div class="morning-greeting">
+        <span class="section-kicker">TODAY / ${escapeHtml(view.date)}</span>
         <h2>早安，${escapeHtml(nickname)}</h2>
-        <p>${escapeHtml(scanMessage)}</p>
-      </section>
-
-      <section class="vitals-panel" aria-label="玩家人生体征">
-        <div class="sync-orb" aria-label="今日同步率 ${syncStats.percent}%">
-          <span>今日同步率</span>
-          <strong>${escapeHtml(syncStats.percent)}%</strong>
-          <small>${escapeHtml(syncStats.label)}</small>
-        </div>
-
-        <div class="vital-grid">
-          ${renderVital("连续上线", `${streakDays || 1}`, "天")}
-          ${renderVital("等级", `Lv.${level.value || 1}`, "")}
-          <div class="exp-vital">
-            <span>经验进度</span>
-            <strong>${escapeHtml(progress)}%</strong>
-            <meter min="0" max="100" value="${progress}"></meter>
-            <small>${escapeHtml(level.exp || 0)} / ${escapeHtml(level.nextLevelExp || 100)} 经验</small>
-          </div>
-        </div>
-
-        <div class="identity-strip" aria-label="称号与标签">
+        <div class="identity-strip">
           <strong>${escapeHtml(selectedTitle)}</strong>
-          <div class="tag-strip">
-            ${renderTags(tags)}
-          </div>
+          <div class="tag-strip">${renderTags(tags)}</div>
         </div>
-      </section>
+      </div>
+      <div class="compact-vitals" aria-label="等级与经验">
+        <div>
+          <span>等级</span>
+          <strong>Lv.${escapeHtml(view.level.value || 1)}</strong>
+        </div>
+        <div class="compact-exp">
+          <span>经验</span>
+          <strong>${escapeHtml(view.level.exp || 0)} / ${escapeHtml(view.level.nextLevelExp || 16)}</strong>
+          <meter min="0" max="100" value="${progress}"></meter>
+        </div>
+        <div>
+          <span>今日同步</span>
+          <strong>${escapeHtml(view.sync.completed)} / ${escapeHtml(view.sync.total)}</strong>
+        </div>
+      </div>
+    </section>
 
-      <section class="daily-tasks" aria-label="今日维护队列">
-        <header>
-          <div>
-            <span class="section-kicker">今日维护队列</span>
-            <strong>${escapeHtml(daily.tasks.length)} 项待同步</strong>
-          </div>
-          <time datetime="${escapeHtml(today)}">${escapeHtml(today)}</time>
-        </header>
-        <div class="task-list">
-          ${daily.tasks.map((task) => renderTaskRow(task, {
-            allowTaskCompletion,
-            isLastSynced: task?.id === lastSyncedTaskId,
-          })).join("")}
+    ${systemMessage ? `<p class="system-feedback" role="status">${escapeHtml(systemMessage)}</p>` : ""}
+
+    <section class="daily-runtime" aria-label="今日运行">
+      <article class="main-action ${main.completed ? "is-complete" : ""}" ${flashAttribute(expFlash, "main")}>
+        <div class="runtime-icon main-runtime-icon"><i data-lucide="route" aria-hidden="true"></i></div>
+        <div class="runtime-copy">
+          <span>${escapeHtml(main.context)}</span>
+          <h3>${escapeHtml(main.title)}</h3>
         </div>
-      </section>
-    </div>
+        <div class="runtime-actions">
+          ${main.empty ? `
+            <button class="primary-runtime-button" type="button" data-action="open-main-quest">${escapeHtml(main.actionLabel)}</button>
+          ` : `
+            <button class="icon-button" type="button" data-action="open-main-quest" aria-label="管理主线" title="管理主线">
+              <i data-lucide="settings-2" aria-hidden="true"></i>
+            </button>
+            <button class="icon-button" type="button" data-action="add-main-progress" aria-label="追加进展" title="追加进展">
+              <i data-lucide="plus" aria-hidden="true"></i>
+            </button>
+            <button class="primary-runtime-button" type="button" data-action="sync-main" ${main.completed ? "disabled" : ""}>${escapeHtml(main.actionLabel)}</button>
+          `}
+        </div>
+        <form class="inline-runtime-form main-progress-form" hidden>
+          <label class="sr-only" for="main-progress-input">追加主线进展</label>
+          <input id="main-progress-input" name="text" maxlength="100" placeholder="记录一段额外推进" required />
+          <button type="submit">记录</button>
+        </form>
+      </article>
+
+      <article class="maintenance-action ${maintenance.completed ? "is-complete" : ""}" ${flashAttribute(expFlash, "maintenance")}>
+        <div class="runtime-icon"><i data-lucide="heart-pulse" aria-hidden="true"></i></div>
+        <div class="runtime-copy">
+          <span>今日维护</span>
+          <h3>${escapeHtml(maintenance.title)}</h3>
+        </div>
+        <div class="runtime-actions">
+          ${maintenance.canReplace ? `
+            <button class="icon-button" type="button" data-action="replace-maintenance" aria-label="换一个维护建议" title="换一个">
+              <i data-lucide="refresh-cw" aria-hidden="true"></i>
+            </button>
+          ` : ""}
+          <button class="secondary-runtime-button" type="button" data-action="sync-maintenance" ${maintenance.completed ? "disabled" : ""}>${escapeHtml(maintenance.actionLabel)}</button>
+        </div>
+      </article>
+
+      <div class="free-record-slot ${freeRecord.completed ? "has-record" : ""}" ${flashAttribute(expFlash, "freeRecord")}>
+        <button class="free-record-trigger" type="button" data-action="toggle-free-record" aria-expanded="false">
+          <span class="runtime-icon"><i data-lucide="${freeRecord.important ? "star" : "plus"}" aria-hidden="true"></i></span>
+          <span class="runtime-copy">
+            <span>自由记录</span>
+            <strong>${escapeHtml(freeRecord.title)}</strong>
+          </span>
+          <span>${escapeHtml(freeRecord.actionLabel)}</span>
+        </button>
+        <form class="inline-runtime-form free-record-form" hidden>
+          <label class="sr-only" for="free-record-input">自由记录</label>
+          <input id="free-record-input" name="text" maxlength="120" value="${escapeHtml(freeRecord.completed ? freeRecord.title : "")}" placeholder="今天有什么值得留下？" required />
+          <label class="important-toggle"><input type="checkbox" name="important" ${freeRecord.important ? "checked" : ""} /> 重要</label>
+          ${freeRecord.completed ? `<button type="button" data-action="delete-free-record">删除</button>` : ""}
+          <button type="submit">保存</button>
+        </form>
+      </div>
+    </section>
 
     <footer class="panel-actions">
       <span class="panel-footer-mark">LOCAL SAVE / EARTH-01</span>
-      <button type="button" data-action="export">导出存档</button>
-      <label class="import-button">
-        <span>导入存档</span>
+      <button class="icon-button" type="button" data-action="export" aria-label="导出存档" title="导出存档">
+        <i data-lucide="download" aria-hidden="true"></i>
+      </button>
+      <label class="import-button icon-button" title="导入存档">
+        <span class="sr-only">导入存档</span>
+        <i data-lucide="upload" aria-hidden="true"></i>
         <input type="file" accept="application/json,.json" />
       </label>
     </footer>
   `;
+}
 
-  panel.querySelector(".panel-exit").addEventListener("click", () => {
-    onExit?.();
+export function renderSystemPanel(root, {
+  save,
+  today = new Date().toLocaleDateString("en-CA"),
+  onStatusChange,
+  onMainSync,
+  onMainProgress,
+  onMaintenanceSync,
+  onMaintenanceReplace,
+  onFreeRecordSave,
+  onFreeRecordDelete,
+  onMainQuestCreate,
+  onMainQuestActionChange,
+  onMainQuestPause,
+  onMainQuestComplete,
+  onMainQuestSwitch,
+  onMainQuestAbandon,
+  onOpenArchive,
+  onExit,
+}) {
+  const view = buildMorningView(save, today);
+  const expFlash = root.dataset.expFlashType ? {
+    type: root.dataset.expFlashType,
+    value: root.dataset.expFlashValue,
+  } : null;
+  const panel = document.createElement("section");
+  panel.className = "system-panel morning-brief";
+  panel.setAttribute("aria-label", "地球 Online 清晨系统面板");
+  panel.innerHTML = getMorningPanelMarkup(view, {
+    nickname: save?.profile?.nickname || DEFAULT_NICKNAME,
+    selectedTitle: getSelectedTitle(save),
+    tags: getVisibleTags(save),
+    archiveEntry: getArchiveEntryState(save),
+    systemMessage: root.dataset.systemMessage || "",
+    expFlash,
   });
-  panel.querySelector(".archive-entry").addEventListener("click", () => {
-    onOpenArchive?.();
+
+  root.replaceChildren(panel);
+  mountStatusControl(panel.querySelector("[data-status-host]"), {
+    currentStatus: view.status,
+    onStatusChange,
   });
+
+  panel.querySelector(".panel-exit").addEventListener("click", () => onExit?.());
+  panel.querySelector(".archive-entry").addEventListener("click", () => onOpenArchive?.());
   panel.querySelector("[data-action='export']").addEventListener("click", () => {
     panel.dispatchEvent(new CustomEvent("earth-online-export", { bubbles: true }));
   });
   panel.querySelector(".import-button input").addEventListener("change", (event) => {
     const [file] = event.currentTarget.files || [];
-
     if (file) {
-      panel.dispatchEvent(new CustomEvent("earth-online-import", {
-        bubbles: true,
-        detail: file,
-      }));
+      panel.dispatchEvent(new CustomEvent("earth-online-import", { bubbles: true, detail: file }));
     }
   });
 
-  if (allowTaskCompletion) {
-    for (const button of panel.querySelectorAll("[data-task-id]")) {
-      button.addEventListener("click", () => {
-        const currentTask = daily.tasks.find((task) => task?.id === button.dataset.taskId);
-        const nextSave = completePanelTask(activeSave, button.dataset.taskId);
+  panel.querySelector("[data-action='open-main-quest']").addEventListener("click", () => {
+    openMainQuestDialog(root, {
+      save,
+      onCreate: onMainQuestCreate,
+      onSaveAction: onMainQuestActionChange,
+      onPause: onMainQuestPause,
+      onComplete: onMainQuestComplete,
+      onSwitch: onMainQuestSwitch,
+      onAbandon: onMainQuestAbandon,
+    });
+  });
 
-        if (nextSave !== activeSave) {
-          root.dataset.lastSyncedTaskId = button.dataset.taskId;
-          root.dataset.systemMessage = getTaskCompletionMessage(currentTask);
-          onChange?.(nextSave);
-        }
-      });
+  panel.querySelector("[data-action='sync-main']")?.addEventListener("click", () => {
+    setExpFlash(root, "main", "+20");
+    onMainSync?.();
+  });
+  panel.querySelector("[data-action='add-main-progress']")?.addEventListener("click", () => {
+    toggleInlineForm(panel, ".main-progress-form", "[data-action='add-main-progress']");
+  });
+  panel.querySelector(".main-progress-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = new FormData(event.currentTarget).get("text");
+    onMainProgress?.(text);
+  });
+  panel.querySelector("[data-action='sync-maintenance']").addEventListener("click", () => {
+    setExpFlash(root, "maintenance", "+8");
+    onMaintenanceSync?.();
+  });
+  panel.querySelector("[data-action='replace-maintenance']")?.addEventListener("click", () => {
+    onMaintenanceReplace?.();
+  });
+  panel.querySelector("[data-action='toggle-free-record']").addEventListener("click", () => {
+    toggleInlineForm(panel, ".free-record-form", "[data-action='toggle-free-record']");
+  });
+  panel.querySelector(".free-record-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    if (view.actions[2].rewardAvailable) {
+      setExpFlash(root, "freeRecord", "+8");
     }
-  }
+    onFreeRecordSave?.({
+      text: data.get("text"),
+      important: data.get("important") === "on",
+    });
+  });
+  panel.querySelector("[data-action='delete-free-record']")?.addEventListener("click", () => {
+    onFreeRecordDelete?.();
+  });
 
-  root.append(panel);
+  globalThis.lucide?.createIcons({ root: panel });
+  clearExpFlashAfterDelay(root, panel, expFlash);
+}
 
-  if (daily.changed) {
-    queueMicrotask(() => onChange?.(activeSave));
-  }
+function flashAttribute(expFlash, type) {
+  return expFlash?.type === type
+    ? `data-exp-flash="${escapeHtml(expFlash.value || "")}"`
+    : "";
+}
 
-  if (lastSyncedTaskId) {
-    globalThis.setTimeout?.(() => {
-      if (root.dataset.lastSyncedTaskId === lastSyncedTaskId) {
-        delete root.dataset.lastSyncedTaskId;
-      }
-    }, 1200);
-  }
+function setExpFlash(root, type, value) {
+  root.dataset.expFlashType = type;
+  root.dataset.expFlashValue = value;
+}
+
+function clearExpFlashAfterDelay(root, panel, expFlash) {
+  if (!expFlash) return;
+
+  globalThis.setTimeout?.(() => {
+    panel.querySelector("[data-exp-flash]")?.removeAttribute("data-exp-flash");
+    if (root.dataset.expFlashType === expFlash.type) {
+      delete root.dataset.expFlashType;
+      delete root.dataset.expFlashValue;
+    }
+  }, 1200);
+}
+
+function toggleInlineForm(panel, formSelector, triggerSelector) {
+  const form = panel.querySelector(formSelector);
+  const trigger = panel.querySelector(triggerSelector);
+  const opening = form.hidden;
+
+  form.hidden = !opening;
+  form.closest(".free-record-slot")?.classList.toggle("is-editing", opening);
+  trigger?.setAttribute("aria-expanded", String(opening));
+  if (opening) form.querySelector("input")?.focus();
 }
 
 function renderTaskRow(task, { allowTaskCompletion = true, isLastSynced = false } = {}) {

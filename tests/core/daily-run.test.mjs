@@ -4,6 +4,7 @@ import {
   deleteFreeRecord,
   ensureDailyRun,
   recordAdditionalMainProgress,
+  refreshDailyMainAction,
   replaceDailyMaintenance,
   saveFreeRecord,
   setDailyStatus,
@@ -108,6 +109,56 @@ test("status change updates untouched maintenance and preserves handled maintena
   assert.equal(changed.dailyRuns[0].maintenance.status, "high_load");
   assert.equal(preserved.dailyRuns[0].status, "low_energy");
   assert.equal(preserved.dailyRuns[0].maintenance.itemId, completed.dailyRuns[0].maintenance.itemId);
+});
+
+test("refreshDailyMainAction fills or updates only an unsynced slot", () => {
+  const empty = ensureDailyRun({ ...fixtureSaveWithMainQuest(), mainQuest: null }, DATE);
+  const active = fixtureSaveWithMainQuest();
+  const filled = refreshDailyMainAction({ ...empty, mainQuest: active.mainQuest }, DATE);
+
+  assert.equal(filled.dailyRuns[0].mainAction.text, "完成数据迁移");
+
+  const updatedQuest = {
+    ...active.mainQuest,
+    currentAction: { id: "action-2", text: "完成清晨面板" },
+  };
+  const updated = refreshDailyMainAction({ ...filled, mainQuest: updatedQuest }, DATE);
+
+  assert.equal(updated.dailyRuns[0].mainAction.text, "完成清晨面板");
+
+  const synced = syncMainAction(updated, DATE, FIRST_AT);
+  const preserved = refreshDailyMainAction({
+    ...synced,
+    mainQuest: {
+      ...updatedQuest,
+      currentAction: { id: "action-3", text: "不应覆盖已同步记录" },
+    },
+  }, DATE);
+
+  assert.equal(preserved.dailyRuns[0].mainAction.text, "完成清晨面板");
+});
+
+test("refreshDailyMainAction does not carry progress into a different quest", () => {
+  const save = ensureDailyRun(fixtureSaveWithMainQuest(), DATE);
+  const withProgress = recordAdditionalMainProgress(
+    save,
+    DATE,
+    "完成旧主线的第一轮验证",
+    FIRST_AT,
+    { idFactory: () => "old-progress" },
+  );
+  const switched = refreshDailyMainAction({
+    ...withProgress,
+    mainQuest: {
+      id: "quest-2",
+      title: "开始新的主线",
+      status: "active",
+      currentAction: { id: "action-2", text: "整理新主线的第一步" },
+    },
+  }, DATE);
+
+  assert.equal(switched.dailyRuns[0].mainAction.questId, "quest-2");
+  assert.deepEqual(switched.dailyRuns[0].mainAction.additionalProgress, []);
 });
 
 function fixtureSaveWithMainQuest() {
