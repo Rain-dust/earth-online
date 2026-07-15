@@ -1,6 +1,7 @@
 import {
   DEFAULT_TASK_POOL,
   LEGACY_TASK_TITLE_LABELS,
+  normalizeRuntimeStatus,
   RUNTIME_STATUSES,
   TASK_CATEGORIES,
   TASK_CATEGORY_LABELS,
@@ -10,7 +11,6 @@ import {
 const TASK_COUNTS_BY_STATUS = Object.freeze({
   [RUNTIME_STATUSES.HIGH_LOAD]: 3,
   [RUNTIME_STATUSES.LOW_ENERGY]: 3,
-  [RUNTIME_STATUSES.MAINTENANCE]: 3,
   [RUNTIME_STATUSES.LOST_ROUTE]: 4,
   [RUNTIME_STATUSES.STABLE]: 5,
   [RUNTIME_STATUSES.MAIN_QUEST_PUSH]: 5,
@@ -29,7 +29,7 @@ export function generateDailyTasks({
   mainQuest,
   customTaskPool = [],
 } = {}) {
-  const safeStatus = status || RUNTIME_STATUSES.STABLE;
+  const safeStatus = normalizeRuntimeStatus(status);
   const count = TASK_COUNTS_BY_STATUS[safeStatus] || TASK_COUNTS_BY_STATUS[RUNTIME_STATUSES.STABLE];
   const safeCustomTaskPool = Array.isArray(customTaskPool) ? customTaskPool : [];
   const tasks = [];

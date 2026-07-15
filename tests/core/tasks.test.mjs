@@ -14,6 +14,17 @@ test("generateDailyTasks returns three high load tasks including NPC category", 
   assert.ok(tasks.some((task) => task.category === TASK_CATEGORIES.NPC));
 });
 
+test("generateDailyTasks maps legacy maintenance status to low energy", () => {
+  const tasks = generateDailyTasks({
+    date: "2026-06-21",
+    status: "maintenance_mode",
+    mainQuest: { title: "\u5730\u7403 Online" },
+  });
+
+  assert.equal(tasks.length, 3);
+  assert.ok(tasks.some((task) => task.category === TASK_CATEGORIES.BODY));
+});
+
 test("generateDailyTasks includes main quest and custom source during stable operation", () => {
   const tasks = generateDailyTasks({
     date: "2026-06-21",
