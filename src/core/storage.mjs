@@ -5,10 +5,12 @@ import {
 
 export const SAVE_FORMAT = "earth-online-save-v1";
 export const STORAGE_KEY = "earth-online-save-v1";
+export const SCHEMA_VERSION = 2;
 
 export function createEmptySave(exportedAt = new Date().toISOString()) {
   return {
     format: SAVE_FORMAT,
+    schemaVersion: SCHEMA_VERSION,
     exportedAt,
     systemNote: "旧存档仍在运行",
     profile: null,
@@ -25,6 +27,15 @@ export function createEmptySave(exportedAt = new Date().toISOString()) {
     correctionLog: [],
     customTaskPool: [],
     mainQuest: null,
+    mainQuestArchive: [],
+    dailyRuns: [],
+    activityEvents: [],
+    rewardLedger: [],
+    weeklyArchive: [],
+    maintenancePreferences: {
+      excludedIds: [],
+      customItems: [],
+    },
     settings: {
       fixedTags: [],
       hiddenTags: [],
@@ -125,8 +136,19 @@ function mergeWithDefaults(save, defaults) {
   return {
     ...defaults,
     ...save,
+    schemaVersion: SCHEMA_VERSION,
     level: { ...defaults.level, ...(save.level || {}) },
     settings: { ...defaults.settings, ...(save.settings || {}) },
+    mainQuest: normalizeMainQuest(save.mainQuest, save.exportedAt || defaults.exportedAt),
+    mainQuestArchive: normalizeArray(save.mainQuestArchive, defaults.mainQuestArchive),
+    dailyRuns: normalizeArray(save.dailyRuns, defaults.dailyRuns),
+    activityEvents: normalizeArray(save.activityEvents, defaults.activityEvents),
+    rewardLedger: normalizeArray(save.rewardLedger, defaults.rewardLedger),
+    weeklyArchive: normalizeArray(save.weeklyArchive, defaults.weeklyArchive),
+    maintenancePreferences: normalizeMaintenancePreferences(
+      save.maintenancePreferences,
+      defaults.maintenancePreferences,
+    ),
     dailyTasks: Array.isArray(save.dailyTasks) ? save.dailyTasks : defaults.dailyTasks,
     taskHistory: Array.isArray(save.taskHistory) ? save.taskHistory : defaults.taskHistory,
     achievements: Array.isArray(save.achievements) ? save.achievements : defaults.achievements,
@@ -136,4 +158,64 @@ function mergeWithDefaults(save, defaults) {
     correctionLog: Array.isArray(save.correctionLog) ? save.correctionLog : defaults.correctionLog,
     customTaskPool: Array.isArray(save.customTaskPool) ? save.customTaskPool : defaults.customTaskPool,
   };
+}
+
+function normalizeMainQuest(value, exportedAt) {
+  if (!value) {
+    return null;
+  }
+
+  const source = typeof value === "object" ? value : {};
+  const title = typeof value === "string"
+    ? value.trim()
+    : String(source.title || "").trim();
+
+  if (!title) {
+    return null;
+  }
+
+  const currentAction = source.currentAction && typeof source.currentAction === "object"
+    ? source.currentAction
+    : {};
+  const actionText = String(currentAction.text || source.nextStep || title).trim();
+
+  return {
+    ...source,
+    id: source.id || "legacy-main-quest",
+    title,
+    status: "active",
+    startedAt: source.startedAt || exportedAt,
+    currentAction: {
+      ...currentAction,
+      id: currentAction.id || "legacy-main-action",
+      text: actionText,
+      createdAt: currentAction.createdAt || exportedAt,
+    },
+  };
+}
+
+function normalizeMaintenancePreferences(value, defaults) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+  return {
+    ...defaults,
+    ...source,
+    excludedIds: normalizeStringArray(source.excludedIds),
+    customItems: normalizeArray(source.customItems, defaults.customItems),
+  };
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean))];
+}
+
+function normalizeArray(value, fallback) {
+  return Array.isArray(value) ? value : fallback;
 }

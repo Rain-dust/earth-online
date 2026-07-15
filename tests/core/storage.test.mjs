@@ -7,6 +7,7 @@ import {
   importSave,
   loadLocalSave,
   SAVE_FORMAT,
+  SCHEMA_VERSION,
   saveLocalSave,
   STORAGE_KEY,
 } from "../../src/core/storage.mjs";
@@ -14,17 +15,28 @@ import {
 test("save format and storage key remain at v1", () => {
   assert.equal(SAVE_FORMAT, "earth-online-save-v1");
   assert.equal(STORAGE_KEY, "earth-online-save-v1");
+  assert.equal(SCHEMA_VERSION, 2);
 });
 
 test("createEmptySave returns versioned readable save shell", () => {
   const save = createEmptySave("2026-06-21T20:24:00+08:00");
 
   assert.equal(save.format, SAVE_FORMAT);
+  assert.equal(save.schemaVersion, 2);
   assert.equal(save.exportedAt, "2026-06-21T20:24:00+08:00");
   assert.equal(save.systemNote, "旧存档仍在运行");
   assert.deepEqual(save.profile, null);
   assert.deepEqual(save.dailyTasks, []);
   assert.deepEqual(save.correctionLog, []);
+  assert.deepEqual(save.mainQuestArchive, []);
+  assert.deepEqual(save.dailyRuns, []);
+  assert.deepEqual(save.activityEvents, []);
+  assert.deepEqual(save.rewardLedger, []);
+  assert.deepEqual(save.weeklyArchive, []);
+  assert.deepEqual(save.maintenancePreferences, {
+    excludedIds: [],
+    customItems: [],
+  });
   assert.deepEqual(save.achievementArchive, {
     version: 1,
     scanStatus: "pending",
@@ -34,6 +46,60 @@ test("createEmptySave returns versioned readable save shell", () => {
     lastSwitchDate: null,
     switchCount: 0,
     lastRecovery: null,
+  });
+});
+
+test("importSave migrates a v0.2 main quest without losing legacy data", () => {
+  const legacy = createEmptySave("2026-07-12T23:00:00.000Z");
+  delete legacy.schemaVersion;
+  legacy.mainQuest = {
+    title: "完成 Earth Online",
+    nextStep: "整理 v0.3 规格",
+  };
+  legacy.dailyTasks = [{ id: "legacy-task", date: "2026-07-12" }];
+
+  const imported = importSave(JSON.stringify(legacy));
+
+  assert.equal(imported.schemaVersion, 2);
+  assert.equal(imported.mainQuest.id, "legacy-main-quest");
+  assert.equal(imported.mainQuest.status, "active");
+  assert.equal(imported.mainQuest.currentAction.text, "整理 v0.3 规格");
+  assert.deepEqual(imported.dailyTasks, legacy.dailyTasks);
+});
+
+test("importSave migrates a legacy string main quest", () => {
+  const legacy = createEmptySave("2026-07-12T23:00:00.000Z");
+  delete legacy.schemaVersion;
+  legacy.mainQuest = "完成 Earth Online";
+
+  const imported = importSave(JSON.stringify(legacy));
+
+  assert.equal(imported.mainQuest.title, "完成 Earth Online");
+  assert.equal(imported.mainQuest.currentAction.text, "完成 Earth Online");
+});
+
+test("importSave normalizes malformed v0.3 collections", () => {
+  const save = createEmptySave("2026-07-12T23:00:00.000Z");
+  save.mainQuestArchive = {};
+  save.dailyRuns = "invalid";
+  save.activityEvents = null;
+  save.rewardLedger = 3;
+  save.weeklyArchive = false;
+  save.maintenancePreferences = {
+    excludedIds: [" stretch-five ", "stretch-five", "", 12],
+    customItems: { title: "invalid" },
+  };
+
+  const imported = importSave(JSON.stringify(save));
+
+  assert.deepEqual(imported.mainQuestArchive, []);
+  assert.deepEqual(imported.dailyRuns, []);
+  assert.deepEqual(imported.activityEvents, []);
+  assert.deepEqual(imported.rewardLedger, []);
+  assert.deepEqual(imported.weeklyArchive, []);
+  assert.deepEqual(imported.maintenancePreferences, {
+    excludedIds: ["stretch-five"],
+    customItems: [],
   });
 });
 
