@@ -28,6 +28,31 @@ export function applyExp(currentLevel, gainedExp) {
   return getLevelFromExp(nextExp);
 }
 
+export function grantDailyExp(save, reward) {
+  if (!reward?.key) {
+    return save;
+  }
+
+  const ledger = Array.isArray(save?.rewardLedger) ? save.rewardLedger : [];
+
+  if (ledger.some((entry) => entry?.key === reward.key)) {
+    return save;
+  }
+
+  const entry = {
+    key: reward.key,
+    type: reward.type,
+    exp: Math.max(0, Math.round(Number(reward.exp) || 0)),
+    at: reward.at,
+  };
+
+  return {
+    ...save,
+    rewardLedger: [...ledger, entry],
+    level: applyExp(save?.level, entry.exp),
+  };
+}
+
 export function getRarity(seed, min = 3.2, max = 64.8) {
   let hash = 0;
 

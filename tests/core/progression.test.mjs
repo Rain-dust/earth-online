@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyExp, getLevelFromExp, getRarity, unlockRuntimeAchievements } from "../../src/core/progression.mjs";
+import {
+  applyExp,
+  getLevelFromExp,
+  getRarity,
+  grantDailyExp,
+  unlockRuntimeAchievements,
+} from "../../src/core/progression.mjs";
 
 test("getLevelFromExp uses slower growth at higher levels", () => {
   assert.equal(getLevelFromExp(0).value, 1);
@@ -89,6 +95,49 @@ test("unlockRuntimeAchievements avoids duplicate NPC filter rewards", () => {
   assert.equal(next.titles.filter((title) => title === "NPC过滤器").length, 1);
   assert.equal(next.tags.filter((tag) => tag === "NPC过滤器").length, 1);
   assert.equal(next.achievements[0].unlockedAt, "2026-06-21T20:24:00+08:00");
+});
+
+test("grantDailyExp grants each daily slot once", () => {
+  const save = {
+    level: { value: 1, exp: 0, nextLevelExp: 16, progress: 0 },
+    rewardLedger: [],
+  };
+  const reward = {
+    key: "2026-07-13:main",
+    type: "main",
+    exp: 20,
+    at: "2026-07-13T08:00:00.000Z",
+  };
+
+  const first = grantDailyExp(save, reward);
+  const second = grantDailyExp(first, {
+    ...reward,
+    at: "2026-07-13T08:01:00.000Z",
+  });
+
+  assert.equal(first.level.exp, 20);
+  assert.equal(second.level.exp, 20);
+  assert.equal(second.rewardLedger.length, 1);
+  assert.deepEqual(save.rewardLedger, []);
+});
+
+test("grantDailyExp sanitizes reward values and rejects missing keys", () => {
+  const save = {
+    level: { value: 1, exp: 5, nextLevelExp: 16, progress: 0 },
+    rewardLedger: {},
+  };
+
+  assert.equal(grantDailyExp(save, { exp: 20 }), save);
+
+  const next = grantDailyExp(save, {
+    key: "2026-07-13:maintenance",
+    type: "maintenance",
+    exp: -8,
+    at: "2026-07-13T08:00:00.000Z",
+  });
+
+  assert.equal(next.level.exp, 5);
+  assert.equal(next.rewardLedger[0].exp, 0);
 });
 
 test("canonical runtime unlocks respect legacy duplicate records", () => {
