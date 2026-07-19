@@ -15,14 +15,14 @@ import {
 test("save format and storage key remain at v1", () => {
   assert.equal(SAVE_FORMAT, "earth-online-save-v1");
   assert.equal(STORAGE_KEY, "earth-online-save-v1");
-  assert.equal(SCHEMA_VERSION, 2);
+  assert.equal(SCHEMA_VERSION, 3);
 });
 
 test("createEmptySave returns versioned readable save shell", () => {
   const save = createEmptySave("2026-06-21T20:24:00+08:00");
 
   assert.equal(save.format, SAVE_FORMAT);
-  assert.equal(save.schemaVersion, 2);
+  assert.equal(save.schemaVersion, 3);
   assert.equal(save.exportedAt, "2026-06-21T20:24:00+08:00");
   assert.equal(save.systemNote, "旧存档仍在运行");
   assert.deepEqual(save.profile, null);
@@ -36,6 +36,19 @@ test("createEmptySave returns versioned readable save shell", () => {
   assert.deepEqual(save.maintenancePreferences, {
     excludedIds: [],
     customItems: [],
+  });
+  assert.deepEqual(save.onboarding, {
+    version: 1,
+    status: "not_started",
+    completedSteps: [],
+    skippedSteps: [],
+    lastStep: "player_name",
+    draft: {},
+  });
+  assert.deepEqual(save.connection, {
+    firstConnectedAt: null,
+    lastActiveAt: null,
+    lastBroadcastAt: null,
   });
   assert.deepEqual(save.achievementArchive, {
     version: 1,
@@ -60,11 +73,101 @@ test("importSave migrates a v0.2 main quest without losing legacy data", () => {
 
   const imported = importSave(JSON.stringify(legacy));
 
-  assert.equal(imported.schemaVersion, 2);
+  assert.equal(imported.schemaVersion, 3);
   assert.equal(imported.mainQuest.id, "legacy-main-quest");
   assert.equal(imported.mainQuest.status, "active");
   assert.equal(imported.mainQuest.currentAction.text, "整理 v0.3 规格");
   assert.deepEqual(imported.dailyTasks, legacy.dailyTasks);
+});
+
+test("importSave gives an empty v2 save a resumable v0.4 shell", () => {
+  const legacy = createEmptySave("2026-07-12T23:00:00.000Z");
+  legacy.schemaVersion = 2;
+  delete legacy.onboarding;
+  delete legacy.connection;
+
+  const imported = importSave(JSON.stringify(legacy));
+
+  assert.equal(imported.schemaVersion, 3);
+  assert.equal(imported.onboarding.status, "not_started");
+  assert.equal(imported.onboarding.lastStep, "player_name");
+  assert.deepEqual(imported.connection, {
+    firstConnectedAt: null,
+    lastActiveAt: null,
+    lastBroadcastAt: null,
+  });
+});
+
+test("importSave marks a legacy profile as already onboarded", () => {
+  const legacy = createEmptySave("2026-07-12T23:00:00.000Z");
+  legacy.schemaVersion = 2;
+  legacy.profile = { nickname: "旧玩家", createdAt: legacy.exportedAt };
+  delete legacy.onboarding;
+
+  const imported = importSave(JSON.stringify(legacy));
+
+  assert.equal(imported.onboarding.status, "complete");
+  assert.equal(imported.onboarding.lastStep, "complete");
+  assert.deepEqual(imported.profile, legacy.profile);
+});
+
+test("importSave preserves an interrupted v0.4 onboarding draft", () => {
+  const save = createEmptySave("2026-07-18T08:00:00.000Z");
+  save.onboarding = {
+    version: 1,
+    status: "in_progress",
+    completedSteps: ["player_name"],
+    skippedSteps: ["life_stage"],
+    lastStep: "birthday",
+    draft: { nickname: "Rain-dust" },
+  };
+
+  const imported = importSave(JSON.stringify(save));
+
+  assert.equal(imported.profile, null);
+  assert.equal(imported.onboarding.status, "in_progress");
+  assert.equal(imported.onboarding.lastStep, "birthday");
+  assert.deepEqual(imported.onboarding.draft, { nickname: "Rain-dust" });
+});
+
+test("importSave repairs malformed onboarding and connection fields", () => {
+  const save = createEmptySave("2026-07-18T08:00:00.000Z");
+  save.onboarding = {
+    status: "future",
+    completedSteps: "invalid",
+    skippedSteps: null,
+    lastStep: "unknown",
+    draft: [],
+  };
+  save.connection = {
+    firstConnectedAt: 42,
+    lastActiveAt: "2026-07-18T08:01:00.000Z",
+    lastBroadcastAt: false,
+    futureConnectionField: { retained: true },
+  };
+
+  const imported = importSave(JSON.stringify(save));
+
+  assert.equal(imported.onboarding.status, "not_started");
+  assert.equal(imported.onboarding.lastStep, "player_name");
+  assert.deepEqual(imported.onboarding.draft, {});
+  assert.deepEqual(imported.connection, {
+    firstConnectedAt: null,
+    lastActiveAt: "2026-07-18T08:01:00.000Z",
+    lastBroadcastAt: null,
+    futureConnectionField: { retained: true },
+  });
+});
+
+test("schema v3 export-import keeps unknown root fields", () => {
+  const save = createEmptySave("2026-07-18T08:00:00.000Z");
+  save.futureRootField = { mode: "still-readable" };
+  save.connection.futureConnectionField = "preserved";
+
+  const imported = importSave(exportSave(save));
+
+  assert.deepEqual(imported.futureRootField, { mode: "still-readable" });
+  assert.equal(imported.connection.futureConnectionField, "preserved");
 });
 
 test("importSave migrates a legacy string main quest", () => {

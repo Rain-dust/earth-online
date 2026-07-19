@@ -2,10 +2,14 @@ import {
   createEmptyAchievementArchive,
   normalizeAchievementArchive,
 } from "./achievements.mjs";
+import {
+  createEmptyOnboarding,
+  normalizeOnboarding,
+} from "./player-profile.mjs";
 
 export const SAVE_FORMAT = "earth-online-save-v1";
 export const STORAGE_KEY = "earth-online-save-v1";
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function createEmptySave(exportedAt = new Date().toISOString()) {
   return {
@@ -14,6 +18,12 @@ export function createEmptySave(exportedAt = new Date().toISOString()) {
     exportedAt,
     systemNote: "旧存档仍在运行",
     profile: null,
+    onboarding: createEmptyOnboarding(),
+    connection: {
+      firstConnectedAt: null,
+      lastActiveAt: null,
+      lastBroadcastAt: null,
+    },
     level: { value: 1, exp: 0, nextLevelExp: 100 },
     currentStatus: null,
     statusHistory: [],
@@ -137,6 +147,10 @@ function mergeWithDefaults(save, defaults) {
     ...defaults,
     ...save,
     schemaVersion: SCHEMA_VERSION,
+    onboarding: normalizeOnboarding(save.onboarding, {
+      hasProfile: Boolean(save.profile && typeof save.profile === "object"),
+    }),
+    connection: normalizeConnection(save.connection, defaults.connection),
     level: { ...defaults.level, ...(save.level || {}) },
     settings: { ...defaults.settings, ...(save.settings || {}) },
     mainQuest: normalizeMainQuest(save.mainQuest, save.exportedAt || defaults.exportedAt),
@@ -158,6 +172,24 @@ function mergeWithDefaults(save, defaults) {
     correctionLog: Array.isArray(save.correctionLog) ? save.correctionLog : defaults.correctionLog,
     customTaskPool: Array.isArray(save.customTaskPool) ? save.customTaskPool : defaults.customTaskPool,
   };
+}
+
+function normalizeConnection(value, defaults) {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+
+  return {
+    ...defaults,
+    ...source,
+    firstConnectedAt: normalizeOptionalTimestamp(source.firstConnectedAt),
+    lastActiveAt: normalizeOptionalTimestamp(source.lastActiveAt),
+    lastBroadcastAt: normalizeOptionalTimestamp(source.lastBroadcastAt),
+  };
+}
+
+function normalizeOptionalTimestamp(value) {
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 function normalizeMainQuest(value, exportedAt) {

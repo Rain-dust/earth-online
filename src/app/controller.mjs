@@ -37,8 +37,13 @@ import {
   switchMainQuest,
 } from "../core/main-quest.mjs";
 import { createEarthScene } from "../scene/earth-scene.mjs";
+import {
+  CONNECTION_ROUTES,
+  renderEarthConnectionSequence,
+} from "../ui/earth-connection-sequence.mjs";
 import { renderHome } from "../ui/home.mjs";
 import { renderInitTerminal } from "../ui/init-terminal.mjs";
+import { renderPlayerOnboardingSequence } from "../ui/player-onboarding-sequence.mjs";
 import {
   createAchievementToastQueue,
   getNewAchievementIds,
@@ -48,16 +53,23 @@ import { renderNightArchive } from "../ui/night-archive.mjs";
 import { renderOldSaveReview, renderRecoveryCeremony } from "../ui/old-save-review.mjs";
 import { renderSystemPanel } from "../ui/system-panel.mjs";
 import { getDom, setSystemVisible } from "./dom.mjs";
+import {
+  ENTRY_ROUTES,
+  resolveEntryRoute,
+  resolveExperienceMode,
+} from "./experience-flags.mjs";
 import { applyPanelDayUpdate } from "./panel-day.mjs";
 
 export function createApp() {
   const dom = getDom();
   const save = loadLocalSave();
   const scene = createEarthScene(dom.stage);
+  const experienceMode = resolveExperienceMode(globalThis.location?.search || "");
   const state = {
     mode: "home",
     save,
     scene,
+    experienceMode,
     archiveFilter: "all",
     archiveSelectedId: null,
     transitionId: 0,
@@ -70,6 +82,7 @@ export function createApp() {
     },
   });
   let focusAttemptId = 0;
+  let activeSequenceCleanup = null;
 
   function hideHomeOverlay() {
     dom.homeOverlay.classList.add("is-hidden");
@@ -101,7 +114,10 @@ export function createApp() {
         return;
       }
 
-      if (state.save.profile) {
+      const route = resolveEntryRoute(state.experienceMode, state.save);
+      if (route === ENTRY_ROUTES.CONNECTION) {
+        showConnection();
+      } else if (route === ENTRY_ROUTES.PANEL) {
         showPanel();
       } else {
         showInit();
@@ -113,9 +129,90 @@ export function createApp() {
     }
   }
 
+  function showConnection() {
+    cleanupActiveSequence();
+    state.mode = "connecting";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+
+    try {
+      activeSequenceCleanup = renderEarthConnectionSequence(dom.systemRoot, {
+        save: state.save,
+        reducedMotion: prefersReducedMotion(),
+        onComplete(route) {
+          if (state.mode !== "connecting") {
+            return;
+          }
+
+          activeSequenceCleanup = null;
+          const now = new Date().toISOString();
+          state.save = saveLocalSave({
+            ...state.save,
+            connection: {
+              ...state.save.connection,
+              firstConnectedAt: state.save.connection?.firstConnectedAt || now,
+              lastActiveAt: now,
+            },
+          });
+
+          if (route === CONNECTION_ROUTES.RETURNING_PLAYER) {
+            showPanel();
+          } else {
+            showOnboarding();
+          }
+        },
+      });
+    } catch (error) {
+      routeThroughLegacyExperience();
+    }
+  }
+
+  function showOnboarding() {
+    cleanupActiveSequence();
+    state.mode = "onboarding";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+
+    try {
+      activeSequenceCleanup = renderPlayerOnboardingSequence(dom.systemRoot, {
+        save: state.save,
+        onSave(nextSave) {
+          state.save = saveLocalSave(nextSave);
+          return state.save;
+        },
+        onFeedback({ step, skipped }) {
+          if (skipped) {
+            dom.systemRoot.classList.remove("has-world-feedback");
+            delete dom.systemRoot.dataset.worldFeedback;
+            return;
+          }
+
+          dom.systemRoot.dataset.worldFeedback = step;
+          dom.systemRoot.classList.remove("has-world-feedback");
+          void dom.systemRoot.offsetWidth;
+          dom.systemRoot.classList.add("has-world-feedback");
+        },
+        onComplete(nextSave) {
+          state.save = nextSave;
+          activeSequenceCleanup = null;
+          showPanel();
+        },
+        onExit: exitToHome,
+      });
+    } catch (error) {
+      showInit();
+    }
+  }
+
   function showInit() {
+    cleanupActiveSequence();
     state.mode = "init";
     clearNightClasses();
+    clearV04Classes();
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
     renderInitTerminal(dom.systemRoot, {
@@ -128,8 +225,10 @@ export function createApp() {
   }
 
   function showPanel() {
+    cleanupActiveSequence();
     state.mode = "panel";
     clearNightClasses();
+    clearV04Classes();
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
     const today = getLocalDateKey();
@@ -361,6 +460,29 @@ export function createApp() {
     dom.systemRoot.classList.remove("is-night", "is-transitioning-night", "is-transitioning-day");
   }
 
+  function clearV04Classes() {
+    dom.systemRoot.classList.remove("is-connection", "is-onboarding", "has-world-feedback");
+    delete dom.systemRoot.dataset.worldFeedback;
+  }
+
+  function cleanupActiveSequence() {
+    const cleanup = activeSequenceCleanup;
+    activeSequenceCleanup = null;
+    cleanup?.();
+  }
+
+  function routeThroughLegacyExperience() {
+    if (state.save.profile) {
+      showPanel();
+    } else {
+      showInit();
+    }
+  }
+
+  function prefersReducedMotion() {
+    return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  }
+
   function enqueueRuntimeAchievementNotices(previous, next) {
     const instances = Array.isArray(next) ? next : [];
     for (const id of getNewAchievementIds(previous, instances)) {
@@ -374,9 +496,11 @@ export function createApp() {
   function exitToHome() {
     focusAttemptId += 1;
     state.transitionId += 1;
+    cleanupActiveSequence();
     scene.skipTransition();
     state.mode = "home";
     clearNightClasses();
+    clearV04Classes();
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, false);
     showHomeOverlay();

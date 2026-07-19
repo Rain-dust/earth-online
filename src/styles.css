@@ -2079,3 +2079,365 @@ body.is-zooming #home-overlay {
     animation-duration: 1ms;
   }
 }
+
+/* Earth connection and player archive recovery */
+#system-root.is-connection,
+#system-root.is-onboarding {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#system-root.is-connection {
+  pointer-events: none;
+}
+
+.earth-connection-signal {
+  position: absolute;
+  top: 22%;
+  left: clamp(1.75rem, 8vw, 7.5rem);
+  max-width: min(28rem, calc(100vw - 3.5rem));
+  padding-left: 1.15rem;
+  color: rgba(230, 246, 255, 0.9);
+  text-shadow: 0 10px 34px rgba(0, 5, 14, 0.82);
+  animation: connection-signal-in 520ms ease both;
+}
+
+.earth-connection-signal::before {
+  position: absolute;
+  top: 0.72rem;
+  left: 0;
+  width: 0.48rem;
+  height: 1px;
+  background: rgba(128, 218, 255, 0.88);
+  content: "";
+  box-shadow: 0 0 12px rgba(91, 195, 255, 0.6);
+}
+
+.earth-connection-signal p {
+  margin: 0;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+.player-onboarding-sequence {
+  position: absolute;
+  top: 15%;
+  left: clamp(2rem, 7vw, 7.5rem);
+  width: min(34rem, calc(100vw - 4rem));
+  max-height: calc(100svh - 7rem);
+  overflow-y: auto;
+  color: rgba(234, 246, 255, 0.94);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 210, 249, 0.22) transparent;
+  text-shadow: 0 12px 40px rgba(0, 5, 14, 0.9);
+  animation: onboarding-copy-in 620ms ease both;
+}
+
+.player-onboarding-sequence::after {
+  position: absolute;
+  top: 4.4rem;
+  left: calc(100% + 2.2rem);
+  width: 6rem;
+  height: 1px;
+  background: rgba(132, 218, 255, 0.75);
+  content: "";
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+#system-root.has-world-feedback .player-onboarding-sequence::after {
+  animation: world-feedback-trace 900ms ease-out both;
+}
+
+.onboarding-copy {
+  width: 100%;
+  padding: 0.4rem 0 2rem;
+}
+
+.onboarding-kicker {
+  margin: 0 0 1rem;
+  color: rgba(131, 215, 255, 0.78);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.onboarding-copy h2 {
+  max-width: 32rem;
+  margin: 0;
+  color: rgba(239, 248, 255, 0.98);
+  font-family: "Songti SC", "STSong", SimSun, "Microsoft YaHei", serif;
+  font-size: 2.6rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.onboarding-context {
+  max-width: 30rem;
+  margin: 0.9rem 0 0;
+  color: rgba(196, 221, 238, 0.68);
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08rem;
+  margin-top: 1.35rem;
+}
+
+.onboarding-options button {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  padding: 0.48rem 0 0.48rem 1.1rem;
+  background: transparent;
+  color: rgba(217, 237, 249, 0.8);
+  font-size: 0.94rem;
+  line-height: 1.4;
+  text-align: left;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.onboarding-options button::before {
+  position: absolute;
+  top: 1.05rem;
+  left: 0;
+  width: 0.45rem;
+  height: 1px;
+  background: rgba(126, 207, 247, 0.52);
+  content: "";
+  transition: width 180ms ease, background-color 180ms ease;
+}
+
+.onboarding-options button:hover,
+.onboarding-options button:focus-visible {
+  outline: 0;
+  background: transparent;
+  color: #f4fbff;
+  transform: translateX(0.3rem);
+}
+
+.onboarding-options button:hover::before,
+.onboarding-options button:focus-visible::before {
+  width: 0.72rem;
+  background: rgba(154, 226, 255, 0.94);
+}
+
+.onboarding-options-secondary {
+  margin-top: 0.55rem;
+}
+
+.onboarding-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.5rem 0.85rem;
+  width: min(28rem, 100%);
+  margin-top: 1.65rem;
+}
+
+.onboarding-entry label {
+  grid-column: 1 / -1;
+  color: rgba(158, 209, 235, 0.65);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.onboarding-entry input,
+.onboarding-entry select {
+  width: 100%;
+  min-width: 0;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(146, 214, 245, 0.46);
+  padding: 0.1rem 0;
+  outline: 0;
+  background: transparent;
+  color: rgba(241, 249, 255, 0.98);
+  font: inherit;
+  font-size: 1rem;
+  text-shadow: 0 8px 24px rgba(0, 5, 14, 0.9);
+}
+
+.onboarding-entry select {
+  color-scheme: dark;
+}
+
+.onboarding-entry input::placeholder {
+  color: rgba(177, 210, 228, 0.42);
+}
+
+.onboarding-entry input:focus,
+.onboarding-entry select:focus {
+  border-bottom-color: rgba(163, 228, 255, 0.95);
+  box-shadow: 0 7px 12px -12px rgba(112, 207, 255, 0.9);
+}
+
+.onboarding-entry button,
+.onboarding-skip,
+.onboarding-complete,
+.onboarding-exit {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(193, 228, 247, 0.76);
+}
+
+.onboarding-entry button {
+  min-height: 2.75rem;
+  border-bottom: 1px solid rgba(146, 214, 245, 0.46);
+  padding: 0 0.15rem;
+  white-space: nowrap;
+}
+
+.onboarding-entry button:hover,
+.onboarding-entry button:focus-visible,
+.onboarding-skip:hover,
+.onboarding-skip:focus-visible,
+.onboarding-complete:hover,
+.onboarding-complete:focus-visible,
+.onboarding-exit:hover,
+.onboarding-exit:focus-visible {
+  outline: 0;
+  background: transparent;
+  color: rgba(244, 251, 255, 1);
+}
+
+.onboarding-entry-quiet {
+  margin-top: 0.65rem;
+  opacity: 0.76;
+}
+
+.onboarding-skip {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0;
+  color: rgba(179, 207, 224, 0.54);
+  font-size: 0.8rem;
+}
+
+.onboarding-summary {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 1.45rem;
+  border-left: 1px solid rgba(135, 213, 249, 0.42);
+  padding-left: 1rem;
+}
+
+.onboarding-summary p {
+  margin: 0;
+  color: rgba(205, 228, 241, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.onboarding-complete {
+  margin-top: 1.45rem;
+  border-bottom: 1px solid rgba(151, 222, 253, 0.58);
+  padding: 0.45rem 0;
+  color: rgba(224, 243, 253, 0.9);
+}
+
+.onboarding-error {
+  max-width: 28rem;
+  margin: 0.75rem 0 0;
+  color: rgba(255, 190, 176, 0.9);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.onboarding-exit {
+  position: fixed;
+  top: 1.4rem;
+  right: 1.5rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: rgba(207, 231, 244, 0.6);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+@keyframes connection-signal-in {
+  from { opacity: 0; transform: translateY(0.45rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes onboarding-copy-in {
+  from { opacity: 0; transform: translateY(0.7rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes world-feedback-trace {
+  0% { opacity: 0; transform: scaleX(0); }
+  35% { opacity: 0.9; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@media (max-width: 700px) {
+  #system-root.is-onboarding {
+    overflow-y: auto;
+  }
+
+  .earth-connection-signal {
+    top: auto;
+    right: 1.25rem;
+    bottom: 20%;
+    left: 1.25rem;
+    max-width: none;
+  }
+
+  .player-onboarding-sequence {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+    min-height: 100svh;
+    max-height: none;
+    padding: 5rem 1.25rem 2.2rem;
+    overflow: visible;
+  }
+
+  .player-onboarding-sequence::after {
+    display: none;
+  }
+
+  .onboarding-copy {
+    padding-bottom: 0;
+  }
+
+  .onboarding-copy h2 {
+    font-size: 2rem;
+  }
+
+  .onboarding-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-entry button {
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .earth-connection-signal,
+  .player-onboarding-sequence,
+  #system-root.has-world-feedback .player-onboarding-sequence::after {
+    animation-duration: 1ms;
+  }
+}

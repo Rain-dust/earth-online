@@ -9,6 +9,8 @@ const HOME_CAMERA = new THREE.Vector3(0, 42, 285);
 const FOCUS_CAMERA = new THREE.Vector3(38, 18, 172);
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const FOCUS_DURATION_MS = 1350;
+const HOME_ROTATION_SPEED = 0.045;
+const FOCUS_ROTATION_SPEED = 0.012;
 const NIGHT_ROTATION_DELTA = Math.PI * 0.7;
 const DAY_ATMOSPHERE_OPACITY = 0.29;
 const NIGHT_ATMOSPHERE_OPACITY = 0.18;
@@ -135,7 +137,7 @@ export function createEarthScene(stage) {
 
   let frameId = 0;
   let isRunning = false;
-  let idleRotation = true;
+  let rotationSpeed = HOME_ROTATION_SPEED;
   let activeTween = null;
   let activeVisualTween = null;
   let visualFactor = 0;
@@ -159,8 +161,8 @@ export function createEarthScene(stage) {
     const delta = clock.getDelta();
     const elapsed = clock.elapsedTime;
 
-    if (idleRotation && !nightRotationLocked) {
-      earthGroup.rotation.y += delta * 0.045;
+    if (!nightRotationLocked) {
+      earthGroup.rotation.y += delta * rotationSpeed;
     }
 
     clouds.rotation.y += delta * 0.024;
@@ -185,12 +187,12 @@ export function createEarthScene(stage) {
   }
 
   function focus() {
-    idleRotation = false;
+    rotationSpeed = FOCUS_ROTATION_SPEED;
     return tweenCamera(FOCUS_CAMERA, FOCUS_DURATION_MS);
   }
 
   function home() {
-    idleRotation = true;
+    rotationSpeed = HOME_ROTATION_SPEED;
     tweenCamera(HOME_CAMERA, 900);
   }
 
