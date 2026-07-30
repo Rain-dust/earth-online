@@ -1,16 +1,24 @@
 import { createMainQuest } from "./main-quest.mjs";
+import {
+  confirmPlayerLocation,
+  normalizePlayerLocation,
+} from "./player-location.mjs";
 
-export const ONBOARDING_VERSION = 1;
+export const ONBOARDING_VERSION = 2;
 
 export const ONBOARDING_STEPS = Object.freeze([
   "player_name",
+  "location",
+  "main_quest",
+  "complete",
+]);
+
+const REMOVED_ONBOARDING_STEPS = Object.freeze([
   "life_stage",
   "birthday",
   "zodiac_confirm",
   "mbti",
-  "main_quest",
   "summary",
-  "complete",
 ]);
 
 export const LIFE_STAGE_OPTIONS = Object.freeze([
@@ -35,8 +43,10 @@ export const ZODIAC_OPTIONS = Object.freeze([
   { value: "pisces", label: "双鱼座" },
 ]);
 
-const ANSWERABLE_STEPS = ONBOARDING_STEPS.filter((step) => !["summary", "complete"].includes(step));
-const OPTIONAL_STEPS = new Set(ANSWERABLE_STEPS.filter((step) => step !== "player_name"));
+const ANSWERABLE_STEPS = ONBOARDING_STEPS.filter((step) => step !== "complete");
+const LEGACY_ANSWERABLE_STEPS = REMOVED_ONBOARDING_STEPS.filter((step) => step !== "summary");
+const PERSISTED_STEPS = [...ANSWERABLE_STEPS, ...LEGACY_ANSWERABLE_STEPS];
+const OPTIONAL_STEPS = new Set(["main_quest"]);
 const LIFE_STAGE_VALUES = new Set(LIFE_STAGE_OPTIONS.map((option) => option.value));
 const ZODIAC_VALUES = new Set(ZODIAC_OPTIONS.map((option) => option.value));
 
@@ -56,21 +66,26 @@ export function normalizeOnboarding(value, { hasProfile = false } = {}) {
     return createEmptyOnboarding({ completed: hasProfile });
   }
 
-  const completedSteps = normalizeSteps(value.completedSteps, ANSWERABLE_STEPS);
-  const skippedSteps = normalizeSteps(value.skippedSteps, ANSWERABLE_STEPS)
+  const draft = normalizeDraft(value.draft);
+  const completedSteps = normalizeSteps(value.completedSteps, PERSISTED_STEPS);
+  const skippedSteps = normalizeSteps(value.skippedSteps, PERSISTED_STEPS)
     .filter((step) => !completedSteps.includes(step));
   const explicitlyComplete = value.status === "complete" || value.completed === true;
   const status = hasProfile || explicitlyComplete
     ? "complete"
     : resolveIncompleteStatus(value.status, completedSteps, skippedSteps);
-  const requestedStep = ONBOARDING_STEPS.includes(value.lastStep)
+  const requestedStep = [...ONBOARDING_STEPS, ...REMOVED_ONBOARDING_STEPS].includes(value.lastStep)
     ? value.lastStep
     : null;
+  const firstPendingStep = getFirstPendingStep(completedSteps, skippedSteps, draft);
   const lastStep = status === "complete"
     ? "complete"
-    : requestedStep && requestedStep !== "complete"
+    : requestedStep
+      && ONBOARDING_STEPS.includes(requestedStep)
+      && requestedStep !== "complete"
+      && requestedStep === firstPendingStep
       ? requestedStep
-      : getFirstPendingStep(completedSteps, skippedSteps);
+      : firstPendingStep;
 
   return {
     version: ONBOARDING_VERSION,
@@ -78,7 +93,7 @@ export function normalizeOnboarding(value, { hasProfile = false } = {}) {
     completedSteps,
     skippedSteps,
     lastStep,
-    draft: normalizeDraft(value.draft),
+    draft,
   };
 }
 
@@ -158,58 +173,12 @@ export function recordOnboardingAnswer(
     if (!nickname) {
       throw new Error("玩家名称不能为空");
     }
-    if (nickname.length > 40) {
-      throw new Error("玩家名称不能超过 40 个字符");
+    if (nickname.length > 16) {
+      throw new Error("玩家名称不能超过 16 个字符");
     }
     draft.nickname = nickname;
-  } else if (step === "life_stage") {
-    draft.lifeStage = normalizeLifeStage(value, now);
-  } else if (step === "birthday") {
-    const birthday = parseBirthday(value);
-    if (!birthday) {
-      throw new Error("生日格式应为 YYYY-MM-DD 或 MM-DD");
-    }
-    draft.birthday = { ...birthday, source: "user" };
-    draft.zodiac = {
-      value: deriveZodiac(birthday.month, birthday.day),
-      source: "derived_from_birthday",
-      confirmedByUser: false,
-    };
-  } else if (step === "zodiac_confirm") {
-    if (value === true) {
-      if (!draft.zodiac?.value) {
-        throw new Error("没有可确认的星座记录");
-      }
-      draft.zodiac = { ...draft.zodiac, confirmedByUser: true };
-    } else {
-      const zodiac = String(value || "").trim().toLowerCase();
-      if (!ZODIAC_VALUES.has(zodiac)) {
-        throw new Error("星座记录无效");
-      }
-      draft.zodiac = {
-        value: zodiac,
-        source: "user",
-        confirmedByUser: true,
-      };
-    }
-  } else if (step === "mbti") {
-    if (value === "undetermined") {
-      draft.mbti = {
-        value: null,
-        source: "user",
-        confidence: "undetermined",
-      };
-    } else {
-      const mbti = normalizeMbti(value);
-      if (!mbti) {
-        throw new Error("请输入有效的 MBTI 类型");
-      }
-      draft.mbti = {
-        value: mbti,
-        source: "user",
-        confidence: "self_reported",
-      };
-    }
+  } else if (step === "location") {
+    Object.assign(draft, confirmPlayerLocation(draft, value, now));
   } else if (step === "main_quest") {
     const title = String(value || "").trim();
     if (!title) {
@@ -240,30 +209,16 @@ export function skipOnboardingStep(save, step) {
 
   const onboarding = getActiveOnboarding(save, step);
   const draft = { ...onboarding.draft };
-  let skippedSteps = appendUnique(onboarding.skippedSteps, step);
-  let lastStep = getNextStep(step);
-
-  if (step === "life_stage") delete draft.lifeStage;
-  if (step === "birthday") {
-    delete draft.birthday;
-    delete draft.zodiac;
-    skippedSteps = appendUnique(skippedSteps, "zodiac_confirm");
-    lastStep = "mbti";
-  }
-  if (step === "zodiac_confirm") delete draft.zodiac;
-  if (step === "mbti") delete draft.mbti;
-  if (step === "main_quest") delete draft.mainQuest;
-
-  const newlySkipped = step === "birthday" ? ["birthday", "zodiac_confirm"] : [step];
+  delete draft.mainQuest;
 
   return {
     ...save,
     onboarding: {
       ...onboarding,
       status: "in_progress",
-      completedSteps: onboarding.completedSteps.filter((item) => !newlySkipped.includes(item)),
-      skippedSteps,
-      lastStep,
+      completedSteps: onboarding.completedSteps.filter((item) => item !== step),
+      skippedSteps: appendUnique(onboarding.skippedSteps, step),
+      lastStep: getNextStep(step),
       draft,
     },
   };
@@ -279,8 +234,8 @@ export function finalizePlayerOnboarding(
   if (save?.profile && onboarding.status === "complete") {
     return save;
   }
-  if (onboarding.lastStep !== "summary") {
-    throw new Error("建档尚未进入确认阶段");
+  if (onboarding.lastStep !== "complete") {
+    throw new Error("建档尚未完成必要信息");
   }
 
   const nickname = String(onboarding.draft.nickname || "").trim();
@@ -292,6 +247,13 @@ export function finalizePlayerOnboarding(
     nickname,
     createdAt: save?.profile?.createdAt || now,
   };
+
+  const playerLocation = normalizePlayerLocation(onboarding.draft);
+  if (playerLocation.locationSetupStatus !== "confirmed" || !playerLocation.location) {
+    throw new Error("请选择城市并确认位置锚点");
+  }
+  profile.locationSetupStatus = playerLocation.locationSetupStatus;
+  profile.location = playerLocation.location;
 
   for (const field of ["lifeStage", "birthday", "zodiac", "mbti"]) {
     if (onboarding.draft[field]) {
@@ -336,21 +298,6 @@ function getActiveOnboarding(save, step) {
   return onboarding;
 }
 
-function normalizeLifeStage(value, now) {
-  if (typeof value === "string" && LIFE_STAGE_VALUES.has(value)) {
-    return { value, source: "user", updatedAt: now };
-  }
-
-  if (isRecord(value) && value.value === "custom") {
-    const label = String(value.label || "").trim();
-    if (label) {
-      return { value: "custom", label, source: "user", updatedAt: now };
-    }
-  }
-
-  throw new Error("请选择或描述当前运行阶段");
-}
-
 function normalizeDraft(value) {
   if (!isRecord(value)) {
     return {};
@@ -365,6 +312,12 @@ function normalizeDraft(value) {
     const validStandard = LIFE_STAGE_VALUES.has(lifeStageValue);
     const validCustom = lifeStageValue === "custom" && String(value.lifeStage.label || "").trim();
     if (validStandard || validCustom) draft.lifeStage = { ...value.lifeStage };
+  }
+
+  const playerLocation = normalizePlayerLocation(value);
+  if (playerLocation.locationSetupStatus !== "unseen") {
+    draft.locationSetupStatus = playerLocation.locationSetupStatus;
+    if (playerLocation.location) draft.location = playerLocation.location;
   }
 
   if (isRecord(value.birthday)) {
@@ -408,9 +361,11 @@ function resolveIncompleteStatus(status, completedSteps, skippedSteps) {
     : "not_started";
 }
 
-function getFirstPendingStep(completedSteps, skippedSteps) {
+function getFirstPendingStep(completedSteps, skippedSteps, draft) {
+  if (!draft.nickname) return "player_name";
+  if (normalizePlayerLocation(draft).locationSetupStatus !== "confirmed") return "location";
   const handled = new Set([...completedSteps, ...skippedSteps]);
-  return ANSWERABLE_STEPS.find((step) => !handled.has(step)) || "summary";
+  return draft.mainQuest || handled.has("main_quest") ? "complete" : "main_quest";
 }
 
 function getNextStep(step) {

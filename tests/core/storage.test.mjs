@@ -6,11 +6,14 @@ import {
   exportSave,
   importSave,
   loadLocalSave,
+  readLocalSaveSnapshot,
   SAVE_FORMAT,
   SCHEMA_VERSION,
   saveLocalSave,
   STORAGE_KEY,
 } from "../../src/core/storage.mjs";
+
+const NOW = "2026-07-21T08:00:00.000Z";
 
 test("save format and storage key remain at v1", () => {
   assert.equal(SAVE_FORMAT, "earth-online-save-v1");
@@ -38,7 +41,7 @@ test("createEmptySave returns versioned readable save shell", () => {
     customItems: [],
   });
   assert.deepEqual(save.onboarding, {
-    version: 1,
+    version: 2,
     status: "not_started",
     completedSteps: [],
     skippedSteps: [],
@@ -108,7 +111,10 @@ test("importSave marks a legacy profile as already onboarded", () => {
 
   assert.equal(imported.onboarding.status, "complete");
   assert.equal(imported.onboarding.lastStep, "complete");
-  assert.deepEqual(imported.profile, legacy.profile);
+  assert.deepEqual(imported.profile, {
+    ...legacy.profile,
+    locationSetupStatus: "unseen",
+  });
 });
 
 test("importSave preserves an interrupted v0.4 onboarding draft", () => {
@@ -126,7 +132,7 @@ test("importSave preserves an interrupted v0.4 onboarding draft", () => {
 
   assert.equal(imported.profile, null);
   assert.equal(imported.onboarding.status, "in_progress");
-  assert.equal(imported.onboarding.lastStep, "birthday");
+  assert.equal(imported.onboarding.lastStep, "location");
   assert.deepEqual(imported.onboarding.draft, { nickname: "Rain-dust" });
 });
 
@@ -329,6 +335,35 @@ test("archive state and unknown legacy achievements survive an export-import rou
   assert.deepEqual(imported.achievements, [unknownLegacyAchievement]);
 });
 
+test("location survives export-import while old and invalid profiles safely degrade", () => {
+  const current = createEmptySave(NOW);
+  const location = {
+    id: "simplemaps:1566922272", countryCode: "CN", countryName: "China", countryDisplayName: "中国",
+    regionCode: null, regionName: "Guangdong", regionDisplayName: "广东",
+    cityName: "Shenzhen", cityDisplayName: "深圳", asciiName: "Shenzhen",
+    latitude: 22.5431, longitude: 114.0579, population: 17_600_000, capitalType: "admin",
+    precision: "city", source: "manual", confirmedByUser: true, confirmedAt: NOW,
+  };
+  const imported = importSave(exportSave({
+    ...current,
+    profile: { nickname: "Rain", locationSetupStatus: "confirmed", location },
+  }));
+
+  assert.deepEqual(imported.profile.location, location);
+  assert.equal(imported.profile.locationSetupStatus, "confirmed");
+
+  const legacy = importSave(exportSave({ ...current, profile: { nickname: "Legacy" } }));
+  assert.equal(legacy.profile.location, undefined);
+  assert.equal(legacy.profile.locationSetupStatus, "unseen");
+
+  const invalid = importSave(exportSave({
+    ...current,
+    profile: { nickname: "Broken", locationSetupStatus: "confirmed", location: { ...location, latitude: 200 } },
+  }));
+  assert.equal(invalid.profile.location, undefined);
+  assert.equal(invalid.profile.locationSetupStatus, "unseen");
+});
+
 test("loadLocalSave returns empty save when default localStorage is inaccessible", () => {
   withThrowingLocalStorage(() => {
     const save = loadLocalSave();
@@ -344,6 +379,36 @@ test("saveLocalSave returns save when default localStorage is inaccessible", () 
 
     assert.equal(saveLocalSave(save), save);
   });
+});
+
+test("strict local save reads distinguish found, empty, and failed storage", () => {
+  const foundSave = createEmptySave("2026-07-20T08:00:00.000Z");
+  foundSave.profile = { nickname: "远行者" };
+  const found = readLocalSaveSnapshot({
+    getItem: () => exportSave(foundSave),
+  });
+  const empty = readLocalSaveSnapshot({ getItem: () => null });
+  const failed = readLocalSaveSnapshot({
+    getItem() {
+      throw new Error("storage denied");
+    },
+  });
+
+  assert.equal(found.status, "found");
+  assert.equal(found.save.profile.nickname, "远行者");
+  assert.equal(empty.status, "empty");
+  assert.equal(empty.save.profile, null);
+  assert.equal(failed.status, "error");
+  assert.equal(failed.save, null);
+  assert.match(failed.error.message, /storage denied/);
+});
+
+test("strict local save reports malformed JSON instead of returning an empty save", () => {
+  const result = readLocalSaveSnapshot({ getItem: () => "not-json" });
+
+  assert.equal(result.status, "error");
+  assert.equal(result.save, null);
+  assert.match(result.error.message, /not valid/);
 });
 
 test("loadLocalSave uses default localStorage when storage is explicitly undefined", () => {

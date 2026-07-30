@@ -87,7 +87,13 @@ test("recordNightSwitch defaults to the current ISO timestamp when now is omitte
   });
   assert.match(updated.firstNightEnteredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   assert.match(updated.lastSwitchDate, /^\d{4}-\d{2}-\d{2}$/);
-  assert.equal(updated.lastSwitchDate, updated.firstNightEnteredAt.slice(0, 10));
+  const current = new Date(updated.firstNightEnteredAt);
+  const localDate = [
+    current.getFullYear(),
+    String(current.getMonth() + 1).padStart(2, "0"),
+    String(current.getDate()).padStart(2, "0"),
+  ].join("-");
+  assert.equal(updated.lastSwitchDate, localDate);
   assert.equal(updated.switchCount, 1);
 });
 
@@ -122,4 +128,16 @@ test("recordNightSwitch tolerates malformed archives without mutating its input"
     lastSwitchDate: "2026-07-12",
     switchCount: 1,
   });
+});
+
+test("recordNightSwitch keys the switch to the local calendar day", () => {
+  const localTime = new Date(2026, 6, 13, 0, 15, 0);
+  const updated = recordNightSwitch({
+    lastSwitchDate: "2026-07-12",
+    switchCount: 8,
+  }, localTime);
+
+  assert.equal(updated.lastSwitchDate, "2026-07-13");
+  assert.equal(updated.switchCount, 1);
+  assert.equal(updated.firstNightEnteredAt, localTime.toISOString());
 });

@@ -1,14 +1,26 @@
 import * as THREE from "three";
 import ThreeGlobe from "https://esm.sh/three-globe";
+import {
+  isProjectedPointVisible,
+  isWorldPointVisible,
+  latLngToCartesian,
+} from "./geo-projection.mjs";
+import { PlayerSignalAnchor } from "./player-signal-anchor.mjs";
+import { createSatelliteHandshake } from "./satellite-handshake.mjs";
+import {
+  getSubsolarPoint,
+  getViewPreset,
+  selectBestLitInitialPreset,
+} from "./view-presets.mjs";
 
 const EARTH_IMAGE = "./assets/earth-blue-marble.jpg";
 const EARTH_BUMP = "./assets/earth-topology.png";
 const CLOUD_IMAGE = "./assets/clouds.png";
 const GLOBE_RADIUS = 100;
-const HOME_CAMERA = new THREE.Vector3(0, 42, 285);
-const FOCUS_CAMERA = new THREE.Vector3(38, 18, 172);
+const ANCHOR_PROJECTION_RADIUS = 101.8;
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
-const FOCUS_DURATION_MS = 1350;
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
+const INITIAL_EARTH_ROTATION = -0.58;
 const HOME_ROTATION_SPEED = 0.045;
 const FOCUS_ROTATION_SPEED = 0.012;
 const NIGHT_ROTATION_DELTA = Math.PI * 0.7;
@@ -16,19 +28,19 @@ const DAY_ATMOSPHERE_OPACITY = 0.29;
 const NIGHT_ATMOSPHERE_OPACITY = 0.18;
 
 const DAY_VISUAL_STATE = Object.freeze({
-  exposure: 1.2,
-  sun: 2.65,
-  fill: 1.18,
-  oceanFill: 1.25,
-  emissive: 0.3,
+  exposure: 1.12,
+  sun: 2.35,
+  fill: 1,
+  oceanFill: 0.72,
+  emissive: 0.17,
 });
 
 const NIGHT_VISUAL_STATE = Object.freeze({
-  exposure: 0.82,
+  exposure: 0.76,
   sun: 0.58,
-  fill: 1.42,
-  oceanFill: 0.5,
-  emissive: 0.16,
+  fill: 0.92,
+  oceanFill: 0.22,
+  emissive: 0.08,
 });
 
 const ORBIT_PLANES = Object.freeze([
@@ -76,10 +88,9 @@ const CITY_LIGHTS = [
 
 export function createEarthScene(stage) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x020611, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = DAY_VISUAL_STATE.exposure;
   if ("outputColorSpace" in renderer) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
@@ -89,11 +100,16 @@ export function createEarthScene(stage) {
   scene.fog = new THREE.FogExp2(0x030812, 0.00046);
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1200);
-  camera.position.copy(HOME_CAMERA);
+  const initialBounds = stage.getBoundingClientRect();
+  const initialAspect = Math.max(1, initialBounds.width) / Math.max(1, initialBounds.height);
+  const initialFraming = selectBestLitInitialPreset(new Date(), { aspect: initialAspect });
+  camera.position
+    .set(...initialFraming.camera)
+    .applyAxisAngle(WORLD_UP, INITIAL_EARTH_ROTATION);
   camera.lookAt(LOOK_AT);
 
   const earthGroup = new THREE.Group();
-  earthGroup.rotation.y = -0.58;
+  earthGroup.rotation.y = INITIAL_EARTH_ROTATION;
   scene.add(earthGroup);
 
   const globe = new ThreeGlobe({ waitForGlobeReady: false, animateIn: false })
@@ -117,10 +133,10 @@ export function createEarthScene(stage) {
     );
 
   const globeMaterial = globe.globeMaterial();
-  globeMaterial.color = new THREE.Color(0xf6fbff);
-  globeMaterial.emissive = new THREE.Color(0x15385c);
+  globeMaterial.color = new THREE.Color(0xdce5e7);
+  globeMaterial.emissive = new THREE.Color(0x07131c);
   globeMaterial.emissiveIntensity = DAY_VISUAL_STATE.emissive;
-  globeMaterial.shininess = 3;
+  globeMaterial.shininess = 0.7;
   earthGroup.add(globe);
 
   const atmosphere = createAtmosphere();
@@ -131,9 +147,13 @@ export function createEarthScene(stage) {
 
   const orbitalNetwork = createOrbitalNetwork();
   earthGroup.add(orbitalNetwork);
+  const playerSignalAnchor = new PlayerSignalAnchor(earthGroup);
+  const handshakeVisual = createHandshakeVisual(earthGroup, orbitalNetwork);
 
-  scene.add(createStars());
+  const stars = createStars();
+  scene.add(stars);
   const { sun, fill, oceanFill } = addLights(scene);
+  applySolarLighting(sun, new Date(), earthGroup.rotation.y);
 
   let frameId = 0;
   let isRunning = false;
@@ -145,6 +165,30 @@ export function createEarthScene(stage) {
   let nightRotation = null;
   let targetVisualMode = "day";
   let nightRotationLocked = false;
+  let locationRotationLocked = false;
+  let activeEarthTween = null;
+  let ambientMotionPaused = document.hidden;
+  const projectionSubscribers = new Set();
+
+  const satelliteHandshake = createSatelliteHandshake({
+    focusLocation,
+    onAcquireSatellite: ({ location }) => handshakeVisual.begin(location),
+    onAnchorState: (state, location) => playerSignalAnchor.setState(state, location),
+    onDownlink: () => handshakeVisual.showDownlink(),
+    onReturnPulse: ({ animated }) => {
+      handshakeVisual.hideDownlink();
+      playerSignalAnchor.pulseOnce({
+        duration: animated ? 760 : 0,
+        reducedMotion: !animated,
+        variant: "identity",
+      });
+    },
+    onComplete: () => handshakeVisual.finish(),
+    onCancel: () => {
+      handshakeVisual.finish();
+      playerSignalAnchor.clear();
+    },
+  });
 
   const clock = new THREE.Clock();
 
@@ -154,24 +198,34 @@ export function createEarthScene(stage) {
     const nextHeight = Math.max(1, height);
     camera.aspect = nextWidth / nextHeight;
     camera.updateProjectionMatrix();
+    const isNarrow = nextWidth < 680 || camera.aspect < 0.82;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isNarrow ? 1.25 : 1.6));
     renderer.setSize(nextWidth, nextHeight, false);
+    setResponsiveComplexity({ orbitalNetwork, stars }, isNarrow);
   }
 
   function render() {
     const delta = clock.getDelta();
     const elapsed = clock.elapsedTime;
+    const ambientDelta = ambientMotionPaused ? 0 : Math.min(delta, 0.05);
 
-    if (!nightRotationLocked) {
-      earthGroup.rotation.y += delta * rotationSpeed;
+    if (!nightRotationLocked && !locationRotationLocked) {
+      earthGroup.rotation.y += ambientDelta * rotationSpeed;
     }
 
-    clouds.rotation.y += delta * 0.024;
-    updateOrbitalNetwork(orbitalNetwork, delta, elapsed);
+    clouds.rotation.y += ambientDelta * 0.024;
+    updateOrbitalNetwork(orbitalNetwork, ambientDelta, elapsed);
+    handshakeVisual.update();
     updateTween();
     updateVisualTween();
+    updateEarthTween();
+    playerSignalAnchor.update(performance.now());
+    notifyProjectionSubscribers();
 
     renderer.render(scene, camera);
-    frameId = requestAnimationFrame(render);
+    if (isRunning) {
+      frameId = requestAnimationFrame(render);
+    }
   }
 
   function start() {
@@ -183,17 +237,133 @@ export function createEarthScene(stage) {
     stage.dataset.sceneReady = "true";
     resize();
     window.addEventListener("resize", resize);
-    frameId = requestAnimationFrame(render);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (isRunning) {
+      frameId = requestAnimationFrame(render);
+    }
   }
 
-  function focus() {
+  function stop() {
+    if (!isRunning) {
+      return;
+    }
+    isRunning = false;
+    cancelAnimationFrame(frameId);
+    window.removeEventListener("resize", resize);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    satelliteHandshake.abortPlayerSignalHandshake();
+  }
+
+  function handleVisibilityChange() {
+    ambientMotionPaused = document.hidden;
+    if (!ambientMotionPaused) {
+      clock.getDelta();
+    }
+  }
+
+  function focus(options = {}) {
+    const reducedMotion = options.reducedMotion ?? prefersReducedMotion();
     rotationSpeed = FOCUS_ROTATION_SPEED;
-    return tweenCamera(FOCUS_CAMERA, FOCUS_DURATION_MS);
+    return applyViewPreset("connection", { reducedMotion });
   }
 
-  function home() {
+  function home(options = {}) {
+    const reducedMotion = options.reducedMotion ?? prefersReducedMotion();
     rotationSpeed = HOME_ROTATION_SPEED;
-    tweenCamera(HOME_CAMERA, 900);
+    locationRotationLocked = false;
+    return applyViewPreset("home", { reducedMotion });
+  }
+
+  function applyViewPreset(name, { duration, reducedMotion = false } = {}) {
+    const preset = getViewPreset(name, { aspect: camera.aspect });
+    if (name !== "location-focus") {
+      locationRotationLocked = false;
+      if (activeEarthTween) {
+        const { resolve } = activeEarthTween;
+        activeEarthTween = null;
+        resolve();
+      }
+    }
+    rotationSpeed = preset.rotationSpeed;
+    const target = new THREE.Vector3(...preset.camera);
+    return tweenCamera(target, reducedMotion ? 0 : (duration ?? preset.duration));
+  }
+
+  async function applyInitialFraming({
+    date = new Date(),
+    reducedMotion = prefersReducedMotion(),
+    duration = 0,
+  } = {}) {
+    const framing = selectBestLitInitialPreset(date, { aspect: camera.aspect });
+    const target = new THREE.Vector3(...framing.camera).applyAxisAngle(WORLD_UP, earthGroup.rotation.y);
+    applySolarLighting(sun, date, earthGroup.rotation.y);
+    await tweenCamera(target, reducedMotion ? 0 : duration);
+    return framing;
+  }
+
+  async function focusLocation(location, { reducedMotion = false, duration } = {}) {
+    const point = latLngToVector(location.latitude, location.longitude, GLOBE_RADIUS);
+    locationRotationLocked = true;
+    const locationPreset = getViewPreset("location-focus", { aspect: camera.aspect });
+    const targetCamera = point
+      .normalize()
+      .multiplyScalar(new THREE.Vector3(...locationPreset.camera).length())
+      .applyAxisAngle(WORLD_UP, earthGroup.rotation.y);
+    rotationSpeed = locationPreset.rotationSpeed;
+    await tweenCamera(
+      targetCamera,
+      reducedMotion ? 0 : (duration ?? locationPreset.duration),
+    );
+  }
+
+  function setPlayerLocation(location) {
+    if (!location || !Number.isFinite(Number(location.latitude)) || !Number.isFinite(Number(location.longitude))) {
+      playerSignalAnchor.clear();
+      return;
+    }
+    playerSignalAnchor.setLocation(location);
+  }
+
+  function pulsePlayerSignal(options) {
+    playerSignalAnchor.pulseOnce(options);
+  }
+
+  function establishPlayerSignal(location, options = {}) {
+    return satelliteHandshake.establishPlayerSignal(location, {
+      ...options,
+      reducedMotion: options.reducedMotion ?? prefersReducedMotion(),
+    });
+  }
+
+  function subscribeLocationProjection(location, callback) {
+    const subscription = { location, callback };
+    projectionSubscribers.add(subscription);
+    callback(projectLocation(location));
+    return () => projectionSubscribers.delete(subscription);
+  }
+
+  function projectLocation(location) {
+    const local = latLngToCartesian(location.latitude, location.longitude, ANCHOR_PROJECTION_RADIUS);
+    const world = new THREE.Vector3(local.x, local.y, local.z).applyMatrix4(earthGroup.matrixWorld);
+    const projected = world.clone().project(camera);
+    const bounds = stage.getBoundingClientRect();
+    return {
+      x: (projected.x * 0.5 + 0.5) * bounds.width,
+      y: (-projected.y * 0.5 + 0.5) * bounds.height,
+      visible: isProjectedPointVisible(projected)
+        && isWorldPointVisible(world, camera.position),
+    };
+  }
+
+  function notifyProjectionSubscribers() {
+    if (projectionSubscribers.size === 0) {
+      return;
+    }
+    earthGroup.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    for (const { location, callback } of projectionSubscribers) {
+      callback(projectLocation(location));
+    }
   }
 
   function toNight(duration = 1300) {
@@ -251,6 +421,13 @@ export function createEarthScene(stage) {
       activeTween.resolve();
     }
 
+    if (duration === 0) {
+      camera.position.copy(target);
+      camera.lookAt(LOOK_AT);
+      activeTween = null;
+      return Promise.resolve();
+    }
+
     return new Promise((resolve) => {
       activeTween = {
         from,
@@ -298,6 +475,38 @@ export function createEarthScene(stage) {
         resolve,
       };
     });
+  }
+
+  function tweenEarthRotation(target, duration) {
+    if (activeEarthTween?.resolve) {
+      activeEarthTween.resolve();
+    }
+    if (duration === 0) {
+      earthGroup.rotation.y = target;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      activeEarthTween = {
+        from: earthGroup.rotation.y,
+        target,
+        startedAt: performance.now(),
+        duration,
+        resolve,
+      };
+    });
+  }
+
+  function updateEarthTween() {
+    if (!activeEarthTween) {
+      return;
+    }
+    const progress = Math.min((performance.now() - activeEarthTween.startedAt) / activeEarthTween.duration, 1);
+    earthGroup.rotation.y = THREE.MathUtils.lerp(activeEarthTween.from, activeEarthTween.target, easeInOutCubic(progress));
+    if (progress >= 1) {
+      const { resolve } = activeEarthTween;
+      activeEarthTween = null;
+      resolve();
+    }
   }
 
   function settleActiveVisualTween() {
@@ -353,23 +562,39 @@ export function createEarthScene(stage) {
     return THREE.MathUtils.lerp(DAY_VISUAL_STATE[property], NIGHT_VISUAL_STATE[property], factor);
   }
 
-  return { start, focus, home, toNight, toDay, skipTransition };
+  return {
+    start,
+    stop,
+    focus,
+    home,
+    toNight,
+    toDay,
+    skipTransition,
+    applyInitialFraming,
+    applyViewPreset,
+    focusLocation,
+    setPlayerLocation,
+    pulsePlayerSignal,
+    establishPlayerSignal,
+    abortPlayerSignalHandshake: satelliteHandshake.abortPlayerSignalHandshake,
+    subscribeLocationProjection,
+  };
 }
 
 function addLights(scene) {
-  const sun = new THREE.DirectionalLight(0xfff7ef, 2.65);
+  const sun = new THREE.DirectionalLight(0xfff7ef, DAY_VISUAL_STATE.sun);
   sun.position.set(-145, 105, 170);
   scene.add(sun);
 
-  const fill = new THREE.DirectionalLight(0x7fa8d8, 1.18);
+  const fill = new THREE.DirectionalLight(0x9bb1c2, DAY_VISUAL_STATE.fill);
   fill.position.set(180, -35, -105);
   scene.add(fill);
 
-  const oceanFill = new THREE.DirectionalLight(0x5daaff, 1.25);
+  const oceanFill = new THREE.DirectionalLight(0x6f9eb5, DAY_VISUAL_STATE.oceanFill);
   oceanFill.position.set(18, 46, 260);
   scene.add(oceanFill);
 
-  scene.add(new THREE.AmbientLight(0x8ca6c6, 1.04));
+  scene.add(new THREE.AmbientLight(0x9aa7ad, 0.54));
 
   return { sun, fill, oceanFill };
 }
@@ -377,14 +602,17 @@ function addLights(scene) {
 function createAtmosphere() {
   const geometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.028, 96, 96);
   const material = new THREE.MeshBasicMaterial({
-    color: 0x8fdcff,
+    color: 0x91d7e8,
     transparent: true,
     opacity: DAY_ATMOSPHERE_OPACITY,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  return new THREE.Mesh(geometry, material);
+  const atmosphere = new THREE.Mesh(geometry, material);
+  atmosphere.position.set(-0.9, 0.35, 0.5);
+  atmosphere.scale.set(1.012, 1, 1.006);
+  return atmosphere;
 }
 
 function createClouds() {
@@ -497,6 +725,9 @@ function createOrbitalNetwork() {
       satellite.position.set(Math.cos(angle) * plane.radius, Math.sin(angle) * plane.radius, 0);
       satellite.rotation.z = angle + Math.PI / 2;
       planeGroup.add(satellite);
+      if (planeIndex === 0 && index === 0) {
+        network.userData.handshakeSatellite = satellite;
+      }
     }
 
     for (let index = 0; index < 3; index += 1) {
@@ -514,7 +745,9 @@ function createOrbitalNetwork() {
     network.add(planeGroup);
   });
 
-  network.add(createUplinkNetwork());
+  const uplinks = createUplinkNetwork();
+  uplinks.name = "ambient-uplinks";
+  network.add(uplinks);
 
   return network;
 }
@@ -552,7 +785,90 @@ function createUplinkNetwork() {
   return uplinks;
 }
 
+function createHandshakeVisual(earthGroup, orbitalNetwork) {
+  const satellite = orbitalNetwork.userData.handshakeSatellite;
+  const baseScale = satellite.scale.clone();
+  const materialStates = satellite.children.map((child) => {
+    child.material = child.material.clone();
+    return {
+      material: child.material,
+      color: child.material.color.clone(),
+      opacity: child.material.opacity,
+    };
+  });
+  const lineGeometry = new THREE.BufferGeometry();
+  lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(
+    lineGeometry,
+    new THREE.LineBasicMaterial({
+      color: 0x9eeeff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  line.visible = false;
+  earthGroup.add(line);
+
+  const cityPoint = new THREE.Vector3();
+  const satellitePoint = new THREE.Vector3();
+  let active = false;
+  let acquiredAt = 0;
+
+  function begin(location) {
+    const point = latLngToCartesian(location.latitude, location.longitude, ANCHOR_PROJECTION_RADIUS);
+    cityPoint.set(point.x, point.y, point.z);
+    active = true;
+    acquiredAt = performance.now();
+    line.visible = false;
+    materialStates.forEach(({ material }, index) => {
+      material.color.set(index === 1 ? 0xd9fbff : 0x73dff5);
+      material.opacity = index === 1 ? 1 : 0.78;
+    });
+  }
+
+  function update() {
+    if (!active) {
+      return;
+    }
+    const pulse = 1 + Math.sin((performance.now() - acquiredAt) * 0.012) * 0.08;
+    satellite.scale.copy(baseScale).multiplyScalar(pulse);
+    satellite.getWorldPosition(satellitePoint);
+    earthGroup.worldToLocal(satellitePoint);
+    const positions = line.geometry.attributes.position;
+    positions.setXYZ(0, cityPoint.x, cityPoint.y, cityPoint.z);
+    positions.setXYZ(1, satellitePoint.x, satellitePoint.y, satellitePoint.z);
+    positions.needsUpdate = true;
+  }
+
+  function showDownlink() {
+    line.visible = true;
+    line.material.opacity = 0.48;
+  }
+
+  function hideDownlink() {
+    line.visible = false;
+    line.material.opacity = 0;
+  }
+
+  function finish() {
+    active = false;
+    hideDownlink();
+    satellite.scale.copy(baseScale);
+    materialStates.forEach(({ material, color, opacity }) => {
+      material.color.copy(color);
+      material.opacity = opacity;
+    });
+  }
+
+  return Object.freeze({ begin, update, showDownlink, hideDownlink, finish });
+}
+
 function updateOrbitalNetwork(network, delta, elapsed) {
+  if (delta === 0) {
+    return;
+  }
   network.rotation.y += delta * 0.08;
   network.rotation.z = Math.sin(elapsed * 0.25) * 0.025;
 
@@ -575,21 +891,47 @@ function updateOrbitalNetwork(network, delta, elapsed) {
 }
 
 function latLngToVector(lat, lng, radius) {
-  const phi = THREE.MathUtils.degToRad(90 - lat);
-  const theta = THREE.MathUtils.degToRad(lng + 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
+  const point = latLngToCartesian(lat, lng, radius);
+  return new THREE.Vector3(point.x, point.y, point.z);
 }
 
 function easeInOutCubic(value) {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
+function setResponsiveComplexity({ orbitalNetwork, stars }, isNarrow) {
+  const planes = orbitalNetwork.userData.orbitPlanes;
+  if (planes[2]) {
+    planes[2].visible = !isNarrow;
+  }
+  const uplinks = orbitalNetwork.getObjectByName("ambient-uplinks");
+  if (uplinks) {
+    uplinks.visible = !isNarrow;
+  }
+  stars.geometry.setDrawRange(0, isNarrow ? 420 : 900);
+}
+
+function applySolarLighting(sun, date, earthRotation) {
+  const subsolar = getSubsolarPoint(date);
+  const local = latLngToCartesian(subsolar.latitude, subsolar.longitude, 1);
+  sun.position
+    .set(local.x, local.y, local.z)
+    .applyAxisAngle(WORLD_UP, earthRotation)
+    .multiplyScalar(300);
+}
+
+function nearestAngle(from, target) {
+  const fullTurn = Math.PI * 2;
+  const delta = ((target - from + Math.PI) % fullTurn + fullTurn) % fullTurn - Math.PI;
+  return from + delta;
+}
+
 function validateTransitionDuration(duration) {
   if (!Number.isFinite(duration) || duration < 0) {
     throw new RangeError("Transition duration must be finite and nonnegative");
   }
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }

@@ -1,0 +1,334 @@
+.achievement-study {
+  --achievement-gold: #e4b84f;
+  --achievement-ivory: #fff4d6;
+}
+
+.achievement-study[data-preview="true"] .study-header p {
+  color: rgb(255 222 165 / 0.58);
+}
+
+.achievement-study .player-signal {
+  z-index: 3;
+}
+
+.achievement-study .player-signal:focus-visible {
+  outline: none;
+}
+
+.achievement-study .player-signal:focus-visible .lock-visual {
+  filter: drop-shadow(0 0 7px rgb(255 224 160 / 0.54));
+}
+
+.achievement-study .signal-identity {
+  z-index: 3;
+  transition:
+    filter 260ms ease,
+    opacity 260ms ease;
+}
+
+.achievement-study[data-phase="unlocking"] .lock-visual {
+  animation: achievement-signal-charge 520ms cubic-bezier(0.16, 0.74, 0.2, 1) both;
+}
+
+.achievement-study[data-phase="unlocking"] .lock-core {
+  animation: achievement-core-flash 620ms ease both;
+}
+
+.achievement-study[data-phase="revealed"] .signal-identity,
+.achievement-study[data-phase="leaving"] .signal-identity {
+  filter: saturate(0.72);
+  opacity: 0.55;
+}
+
+.achievement-toast {
+  position: absolute;
+  z-index: 6;
+  right: 28px;
+  bottom: 28px;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 18px;
+  width: min(470px, calc(100vw - 56px));
+  min-height: 124px;
+  padding: 13px 18px 13px 13px;
+  overflow: hidden;
+  border: 1px solid rgb(76 99 124 / 0.64);
+  border-radius: 6px;
+  color: #f5f7f8;
+  background: #03070b;
+  box-shadow:
+    0 18px 48px rgb(0 0 0 / 0.48),
+    inset 0 0 0 1px rgb(255 255 255 / 0.025);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(calc(100% + 48px), 0, 0) scale(0.98);
+  transform-origin: 100% 100%;
+}
+
+.achievement-toast::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--achievement-gold);
+  box-shadow: 0 0 12px rgb(228 184 79 / 0.62);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.achievement-toast::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: rgb(255 238 190 / 0.72);
+  box-shadow: 0 0 14px rgb(228 184 79 / 0.7);
+  opacity: 0;
+}
+
+.achievement-art {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  background: #000;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.achievement-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.achievement-copy {
+  align-self: center;
+  min-width: 0;
+}
+
+.achievement-copy p,
+.achievement-copy h1 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.achievement-kicker {
+  color: var(--achievement-gold);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.achievement-copy h1 {
+  margin-top: 3px;
+  color: var(--achievement-ivory);
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.achievement-description {
+  margin-top: 6px !important;
+  color: rgb(236 242 245 / 0.84);
+  font-size: 14px;
+}
+
+.achievement-rarity {
+  margin-top: 8px !important;
+  color: rgb(192 207 215 / 0.54);
+  font-size: 11px;
+}
+
+.achievement-study[data-phase="revealed"] .achievement-toast {
+  pointer-events: auto;
+  animation: steam-toast-arrive 560ms cubic-bezier(0.17, 0.84, 0.28, 1) both;
+}
+
+.achievement-study[data-phase="revealed"] .achievement-toast::before {
+  animation: achievement-trace 420ms cubic-bezier(0.16, 0.74, 0.2, 1) 120ms both;
+}
+
+.achievement-study[data-phase="revealed"] .achievement-toast::after {
+  animation: achievement-edge-flash 620ms ease 90ms both;
+}
+
+.achievement-study[data-phase="revealed"] .achievement-art {
+  animation: steam-icon-settle 520ms cubic-bezier(0.17, 0.84, 0.28, 1) 80ms both;
+}
+
+.achievement-study[data-phase="leaving"] .achievement-toast {
+  opacity: 0;
+  transform: translate3d(28px, 8px, 0) scale(0.99);
+  transition:
+    opacity 300ms ease,
+    transform 360ms ease;
+}
+
+.achievement-study[data-phase="unlocking"] .study-note,
+.achievement-study[data-phase="revealed"] .study-note {
+  opacity: 0;
+}
+
+@keyframes achievement-signal-charge {
+  0% {
+    transform: scale(1);
+  }
+
+  46% {
+    transform: scale(0.78);
+  }
+
+  76% {
+    transform: scale(1.14);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes steam-toast-arrive {
+  0% {
+    opacity: 0;
+    transform: translate3d(calc(100% + 48px), 0, 0) scale(0.98);
+  }
+
+  62% {
+    opacity: 1;
+    transform: translate3d(-10px, 0, 0) scale(1);
+  }
+
+  80% {
+    transform: translate3d(4px, 0, 0) scale(1);
+  }
+
+  92% {
+    transform: translate3d(-2px, 0, 0) scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes achievement-core-flash {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgb(232 248 252 / 0.68),
+      0 0 11px 3px rgb(255 205 116 / 0.34);
+  }
+
+  58% {
+    background: #fff9e8;
+    box-shadow:
+      0 0 0 3px rgb(255 238 184 / 0.78),
+      0 0 28px 12px rgb(255 200 91 / 0.74);
+  }
+}
+
+@keyframes achievement-trace {
+  0% {
+    transform: scaleX(0);
+  }
+
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes achievement-edge-flash {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+
+  28% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(470px);
+  }
+}
+
+@keyframes steam-icon-settle {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  48% {
+    transform: scale(1.045);
+    filter: brightness(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .achievement-toast {
+    right: 16px;
+    bottom: 22px;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 13px;
+    width: calc(100vw - 32px);
+    min-height: 108px;
+    padding: 12px 13px 12px 12px;
+    transform: translate3d(0, calc(100% + 34px), 0) scale(0.985);
+  }
+
+  .achievement-art {
+    width: 78px;
+    height: 78px;
+  }
+
+  .achievement-copy h1 {
+    font-size: 21px;
+  }
+
+  .achievement-description {
+    font-size: 13px;
+  }
+
+  .achievement-rarity {
+    margin-top: 5px !important;
+    font-size: 10px;
+  }
+
+  .achievement-study[data-phase="leaving"] .achievement-toast {
+    transform: translate3d(0, 24px, 0) scale(0.99);
+  }
+
+  @keyframes steam-toast-arrive {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, calc(100% + 34px), 0) scale(0.985);
+    }
+
+    64% {
+      opacity: 1;
+      transform: translate3d(0, -9px, 0) scale(1);
+    }
+
+    82% {
+      transform: translate3d(0, 4px, 0) scale(1);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+}

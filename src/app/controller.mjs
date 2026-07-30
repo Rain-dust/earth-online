@@ -1,7 +1,9 @@
 import {
+  createEmptySave,
   downloadSaveJson,
   importSave,
   loadLocalSave,
+  readLocalSaveSnapshot,
   readSaveFile,
   saveLocalSave,
 } from "../core/storage.mjs";
@@ -16,6 +18,9 @@ import {
   setAchievementPresentation,
 } from "../core/achievements.mjs";
 import { getNightTransitionDuration, recordNightSwitch } from "../core/night-transition.mjs";
+import { confirmFirstSignalRecord } from "../core/first-signal-archive.mjs";
+import { getFirstSignalArchiveView } from "../core/first-signal-archive.mjs";
+import { buildFirstDaySequenceView } from "../core/first-day-sequence.mjs";
 import {
   deleteFreeRecord,
   ensureDailyRun,
@@ -29,6 +34,11 @@ import {
 } from "../core/daily-run.mjs";
 import { getLocalDateKey } from "../core/local-date.mjs";
 import {
+  formatTimeDistance,
+  resolveCurrentMainQuestLastActivityAt,
+  resolveSystemBroadcast,
+} from "../core/system-broadcast-resolver.mjs";
+import {
   abandonMainQuest,
   completeMainQuest,
   createMainQuest,
@@ -39,11 +49,18 @@ import {
 import { createEarthScene } from "../scene/earth-scene.mjs";
 import {
   CONNECTION_ROUTES,
+  getConnectionRoute,
   renderEarthConnectionSequence,
 } from "../ui/earth-connection-sequence.mjs";
 import { renderHome } from "../ui/home.mjs";
+import { renderFirstSignalArchive } from "../ui/first-signal-archive.mjs";
+import { renderFirstDayConnectionSequence } from "../ui/first-day-connection-sequence.mjs";
 import { renderInitTerminal } from "../ui/init-terminal.mjs";
 import { renderPlayerOnboardingSequence } from "../ui/player-onboarding-sequence.mjs";
+import { renderSignalLinkOverlay } from "../ui/signal-link-overlay.mjs";
+import { renderQuietRuntime } from "../ui/quiet-runtime.mjs";
+import { renderSystemBroadcast } from "../ui/system-broadcast.mjs";
+import { createRuntimeAudio } from "../ui/runtime-audio.mjs";
 import {
   createAchievementToastQueue,
   getNewAchievementIds,
@@ -55,23 +72,37 @@ import { renderSystemPanel } from "../ui/system-panel.mjs";
 import { getDom, setSystemVisible } from "./dom.mjs";
 import {
   ENTRY_ROUTES,
+  EXPERIENCE_MODES,
+  FIRST_DAY_SEQUENCE_MODES,
+  RUNTIME_ROUTES,
   resolveEntryRoute,
   resolveExperienceMode,
+  resolveFirstDaySequenceMode,
+  resolvePostConnectionRoute,
 } from "./experience-flags.mjs";
 import { applyPanelDayUpdate } from "./panel-day.mjs";
+import { captureConnectionSnapshot, markBroadcastShown } from "./runtime-session.mjs";
 
 export function createApp() {
   const dom = getDom();
-  const save = loadLocalSave();
+  const locationSearch = globalThis.location?.search || "";
+  const experienceMode = resolveExperienceMode(locationSearch);
+  const firstDaySequenceMode = resolveFirstDaySequenceMode(locationSearch);
+  const save = experienceMode === EXPERIENCE_MODES.V04
+    ? createEmptySave()
+    : loadLocalSave();
   const scene = createEarthScene(dom.stage);
-  const experienceMode = resolveExperienceMode(globalThis.location?.search || "");
+  const runtimeAudio = createRuntimeAudio(globalThis.window);
   const state = {
     mode: "home",
     save,
     scene,
     experienceMode,
+    firstDaySequenceMode,
     archiveFilter: "all",
     archiveSelectedId: null,
+    archiveReturnMode: null,
+    connectionSnapshot: { previousLastActiveAt: null },
     transitionId: 0,
   };
   const achievementToastQueue = createAchievementToastQueue({
@@ -104,6 +135,7 @@ export function createApp() {
     }
 
     const attemptId = ++focusAttemptId;
+    runtimeAudio.play("signal");
     state.mode = "focusing";
     hideHomeOverlay();
     dom.body.classList.add("is-zooming");
@@ -129,7 +161,7 @@ export function createApp() {
     }
   }
 
-  function showConnection() {
+  async function showConnection() {
     cleanupActiveSequence();
     state.mode = "connecting";
     clearNightClasses();
@@ -137,35 +169,103 @@ export function createApp() {
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
 
+    let presenter = null;
+
     try {
-      activeSequenceCleanup = renderEarthConnectionSequence(dom.systemRoot, {
-        save: state.save,
+      presenter = renderEarthConnectionSequence(dom.systemRoot, {
         reducedMotion: prefersReducedMotion(),
-        onComplete(route) {
-          if (state.mode !== "connecting") {
-            return;
-          }
-
-          activeSequenceCleanup = null;
-          const now = new Date().toISOString();
-          state.save = saveLocalSave({
-            ...state.save,
-            connection: {
-              ...state.save.connection,
-              firstConnectedAt: state.save.connection?.firstConnectedAt || now,
-              lastActiveAt: now,
-            },
-          });
-
-          if (route === CONNECTION_ROUTES.RETURNING_PLAYER) {
-            showPanel();
-          } else {
-            showOnboarding();
-          }
+        onAction(action) {
+          if (action === "retry") showConnection();
+          if (action === "return_home") exitToHome();
         },
       });
+      activeSequenceCleanup = presenter.cleanup;
+
+      if (!await presenter.wait() || state.mode !== "connecting") return;
+      const readResult = readLocalSaveSnapshot();
+
+      if (readResult.status === "error") {
+        showConnectionFailure(presenter, readResult.error, "本地存档读取失败");
+        return;
+      }
+
+      state.save = readResult.save;
+      scene.setPlayerLocation(state.save.profile?.location || state.save.onboarding?.draft?.location);
+      state.connectionSnapshot = captureConnectionSnapshot(state.save);
+      presenter.show(readResult.status === "found"
+        ? { id: "save_found", text: "本地存档已找到。" }
+        : { id: "save_empty", text: "未发现本地存档。" });
+
+      if (!await presenter.wait() || state.mode !== "connecting") return;
+      const route = resolvePostConnectionRoute(state.experienceMode, state.save);
+
+      if (route === RUNTIME_ROUTES.ONBOARDING) {
+        presenter.show({
+          id: "onboarding_required",
+          text: readResult.status === "found"
+            ? "玩家档案尚未完成。"
+            : "准备建立新的玩家档案。",
+        });
+        if (!await presenter.wait() || state.mode !== "connecting") return;
+        presenter.finish();
+        activeSequenceCleanup = null;
+        showOnboarding();
+        return;
+      }
+
+      const connectionRoute = getConnectionRoute(state.save);
+      if (connectionRoute !== CONNECTION_ROUTES.RETURNING_PLAYER) {
+        throw new Error("玩家档案状态无法确认");
+      }
+
+      presenter.show({
+        id: "player_identified",
+        text: `玩家 ${state.save.profile?.nickname || "未命名玩家"} 已确认。`,
+      });
+      if (!await presenter.wait() || state.mode !== "connecting") return;
+
+      const savedLocation = state.save.profile?.location;
+      if (savedLocation) {
+        presenter.show({
+          id: "restoring_signal",
+          text: `正在重新连接 ${savedLocation.city || "已存档城市"} 的玩家信号……`,
+        });
+        const handshake = await scene.establishPlayerSignal(savedLocation, {
+          reducedMotion: prefersReducedMotion(),
+          mode: "restore",
+        });
+        if (handshake.status !== "completed" || state.mode !== "connecting") return;
+        runtimeAudio.play("confirmed");
+      }
+
+      presenter.show({ id: "resolving_broadcast", text: "正在检查新的系统事件……" });
+      if (!await presenter.wait() || state.mode !== "connecting") return;
+
+      const preview = resolveSystemBroadcast(state.save, {
+        now: new Date().toISOString(),
+        previousLastActiveAt: state.connectionSnapshot.previousLastActiveAt,
+      });
+      presenter.show(preview.type === "active_main_quest"
+        ? { id: "event_found", text: "发现 1 条未处理事件。" }
+        : { id: "no_event", text: "当前没有新的系统事件。" });
+      if (!await presenter.wait() || state.mode !== "connecting") return;
+
+      presenter.finish();
+      activeSequenceCleanup = null;
+      showBroadcast({
+        previousLastActiveAt: state.connectionSnapshot.previousLastActiveAt,
+      });
     } catch (error) {
-      routeThroughLegacyExperience();
+      if (state.mode === "connecting") {
+        if (presenter) {
+          showConnectionFailure(presenter, error, "连接流程中断");
+        } else {
+          showRuntimeError(error, {
+            prefix: "连接流程中断",
+            onRetry: showConnection,
+          });
+        }
+      }
     }
   }
 
@@ -176,6 +276,8 @@ export function createApp() {
     clearV04Classes();
     dom.systemRoot.replaceChildren();
     setSystemVisible(dom.systemRoot, true);
+    void scene.applyViewPreset("onboarding", { reducedMotion: prefersReducedMotion() });
+    scene.setPlayerLocation(state.save.profile?.location || state.save.onboarding?.draft?.location);
 
     try {
       activeSequenceCleanup = renderPlayerOnboardingSequence(dom.systemRoot, {
@@ -184,7 +286,7 @@ export function createApp() {
           state.save = saveLocalSave(nextSave);
           return state.save;
         },
-        onFeedback({ step, skipped }) {
+        async onFeedback({ step, skipped, value, save: feedbackSave, source, signal, reducedMotion }) {
           if (skipped) {
             dom.systemRoot.classList.remove("has-world-feedback");
             delete dom.systemRoot.dataset.worldFeedback;
@@ -195,17 +297,287 @@ export function createApp() {
           dom.systemRoot.classList.remove("has-world-feedback");
           void dom.systemRoot.offsetWidth;
           dom.systemRoot.classList.add("has-world-feedback");
+
+          const location = step === "location"
+            ? feedbackSave.onboarding?.draft?.location || value
+            : feedbackSave.onboarding?.draft?.location;
+          if (!location) {
+            await delayWithSignal(reducedMotion ? 0 : 620, signal);
+            return;
+          }
+
+          if (step === "location") {
+            runtimeAudio.play("downlink");
+            const handshake = await scene.establishPlayerSignal(location, {
+              reducedMotion,
+              mode: "entry",
+              signal,
+            });
+            if (signal?.aborted || handshake.status !== "completed") return;
+            runtimeAudio.play("confirmed");
+          }
+
+          if (step !== "location") {
+            scene.pulsePlayerSignal({
+              reducedMotion,
+              duration: 850,
+              variant: step === "player_name" ? "identity" : step,
+            });
+          }
+          const removeLink = renderSignalLinkOverlay(dom.systemRoot, {
+            source,
+            variant: step === "main_quest" ? "quest" : "writeback",
+            subscribe: (callback) => scene.subscribeLocationProjection(location, callback),
+          });
+          try {
+            await delayWithSignal(reducedMotion ? 0 : (step === "location" ? 240 : 680), signal);
+          } finally {
+            removeLink();
+            if (step === "location" && state.mode === "onboarding") {
+              await scene.applyViewPreset("onboarding", { reducedMotion });
+            }
+          }
         },
         onComplete(nextSave) {
           state.save = nextSave;
           activeSequenceCleanup = null;
-          showPanel();
+          showBroadcast({
+            previousLastActiveAt: state.connectionSnapshot.previousLastActiveAt,
+          });
         },
         onExit: exitToHome,
       });
     } catch (error) {
-      showInit();
+      showRuntimeError(error, {
+        prefix: "玩家档案无法载入",
+        onRetry: showOnboarding,
+      });
     }
+  }
+
+  function showBroadcast({ previousLastActiveAt = null } = {}) {
+    cleanupActiveSequence();
+    state.mode = "broadcast";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+    scene.setPlayerLocation(state.save.profile?.location);
+
+    const shownAt = new Date().toISOString();
+    const broadcast = resolveSystemBroadcast(state.save, {
+      now: shownAt,
+      previousLastActiveAt,
+    });
+
+    if (
+      broadcast.type === "first_connection"
+      && state.firstDaySequenceMode === FIRST_DAY_SEQUENCE_MODES.SEQUENCE
+    ) {
+      showFirstDaySequence({
+        shownAt,
+        previousLastActiveAt,
+      });
+      return;
+    }
+
+    if (broadcast.type === "first_connection" && state.save.profile?.location) {
+      void scene.focusLocation(state.save.profile.location, {
+        reducedMotion: prefersReducedMotion(),
+        duration: 720,
+      });
+    } else {
+      void scene.applyViewPreset("broadcast", { reducedMotion: prefersReducedMotion() });
+    }
+
+    try {
+      activeSequenceCleanup = renderSystemBroadcast(dom.systemRoot, {
+        broadcast,
+        onAction(action) {
+          if (state.mode !== "broadcast") return;
+          if (action === "record_progress") {
+            showQuiet({ initialChannel: "quest", questProgressOpen: true });
+            return;
+          }
+          if (action === "view_main_quest") {
+            showQuiet({ initialChannel: "quest" });
+            return;
+          }
+          showQuiet();
+        },
+      });
+      state.save = saveLocalSave(markBroadcastShown(state.save, shownAt));
+      runtimeAudio.play("confirmed");
+    } catch (error) {
+      showRuntimeError(error, {
+        prefix: "系统播报无法展示",
+        onRetry: () => showBroadcast({ previousLastActiveAt }),
+      });
+    }
+  }
+
+  function showFirstDaySequence({
+    shownAt = new Date().toISOString(),
+    previousLastActiveAt = null,
+  } = {}) {
+    cleanupActiveSequence();
+    state.mode = "first_day";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+
+    const location = state.save?.profile?.location;
+    if (!location) {
+      showRuntimeError(new Error("玩家位置锚点不存在"), {
+        prefix: "首日连接无法建立",
+        onRetry: showOnboarding,
+      });
+      return;
+    }
+
+    scene.setPlayerLocation(location);
+    void scene.focusLocation(location, {
+      reducedMotion: prefersReducedMotion(),
+      duration: 720,
+    });
+
+    const today = getLocalDateKey(new Date(shownAt));
+    const preparedSave = ensureDailyRun(state.save, today);
+    const view = buildFirstDaySequenceView(preparedSave, today);
+
+    try {
+      activeSequenceCleanup = renderFirstDayConnectionSequence(dom.systemRoot, {
+        view,
+        reducedMotion: prefersReducedMotion(),
+        subscribe: (callback) => scene.subscribeLocationProjection(location, callback),
+        pulseAnchor: (options) => scene.pulsePlayerSignal(options),
+        onPresented() {
+          if (state.mode !== "first_day") return;
+          state.save = saveLocalSave(markBroadcastShown(preparedSave, shownAt));
+        },
+        onAchievement() {
+          runtimeAudio.play("achievement");
+        },
+        onDailySignal() {
+          runtimeAudio.play("daily");
+        },
+        onContinue() {
+          if (state.mode === "first_day") showQuiet();
+        },
+        onError(error) {
+          if (state.mode !== "first_day") return;
+          showRuntimeError(error, {
+            prefix: "首日连接无法展示",
+            onRetry: () => showBroadcast({ previousLastActiveAt }),
+          });
+        },
+      });
+    } catch (error) {
+      showRuntimeError(error, {
+        prefix: "首日连接无法展示",
+        onRetry: () => showBroadcast({ previousLastActiveAt }),
+      });
+    }
+  }
+
+  function showQuiet({ initialChannel = "", questProgressOpen = false } = {}) {
+    cleanupActiveSequence();
+    state.mode = "quiet";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+    scene.setPlayerLocation(state.save.profile?.location);
+    void scene.applyViewPreset("quiet", { reducedMotion: prefersReducedMotion() });
+
+    activeSequenceCleanup = renderQuietRuntime(dom.systemRoot, {
+      view: buildQuietRuntimeView({
+        activeChannel: initialChannel,
+        questProgressOpen,
+      }),
+      onRecordChange(text) {
+        const today = getLocalDateKey();
+        const prepared = ensureDailyRun(state.save, today);
+        const existing = prepared.dailyRuns
+          .find((run) => run?.date === today)?.freeRecord;
+        const previousAchievements = state.save?.achievements;
+        state.save = saveLocalSave(saveFreeRecord(prepared, today, {
+          text,
+          important: existing?.important === true,
+        }));
+        enqueueRuntimeAchievementNotices(previousAchievements, state.save?.achievements);
+
+        return {
+          message: existing
+            ? "今日玩家记录已更新。"
+            : "收到一条新的玩家记录。",
+          view: buildQuietRuntimeView({ activeChannel: "record" }),
+        };
+      },
+      onQuestAction(action, text) {
+        if (action === "record_progress") {
+          const today = getLocalDateKey();
+          const prepared = refreshDailyMainAction(ensureDailyRun(state.save, today), today);
+          state.save = saveLocalSave(recordAdditionalMainProgress(prepared, today, text));
+          return {
+            message: "主线进度已记录。",
+            view: buildQuietRuntimeView({ activeChannel: "quest" }),
+          };
+        }
+
+        if (action === "complete") {
+          state.save = saveLocalSave(completeMainQuest(state.save));
+          return {
+            view: {
+              ...buildQuietRuntimeView({ activeChannel: "quest" }),
+              questFeedback: "主线已标记完成。",
+            },
+          };
+        }
+
+        if (action === "pause") {
+          state.save = saveLocalSave(pauseMainQuest(state.save));
+          return {
+            view: {
+              ...buildQuietRuntimeView({ activeChannel: "quest" }),
+              questFeedback: "主线追踪已关闭。",
+            },
+          };
+        }
+
+        return null;
+      },
+      onOpenArchive() {
+        openArchive({ returnMode: "quiet" });
+      },
+    });
+  }
+
+  function buildQuietRuntimeView({
+    activeChannel = "",
+    questProgressOpen = false,
+  } = {}) {
+    const today = getLocalDateKey();
+    const run = state.save?.dailyRuns?.find((item) => item?.date === today);
+    const quest = state.save?.mainQuest?.status === "active" ? state.save.mainQuest : null;
+    const lastProgressAt = resolveCurrentMainQuestLastActivityAt(state.save);
+
+    return {
+      playerName: state.save?.profile?.nickname || "未命名玩家",
+      activeChannel,
+      questProgressOpen,
+      record: {
+        exists: Boolean(run?.freeRecord),
+        text: run?.freeRecord?.text || "",
+      },
+      quest: quest ? {
+        name: quest.title,
+        lastProgressAt,
+        lastProgressDistance: formatTimeDistance(lastProgressAt),
+      } : null,
+      archive: getFirstSignalArchiveView(state.save),
+    };
   }
 
   function showInit() {
@@ -242,6 +614,7 @@ export function createApp() {
       if (nextSave === state.save) return;
       const previousAchievements = state.save?.achievements;
       state.save = saveLocalSave(nextSave);
+      scene.setPlayerLocation(state.save.profile?.location);
       enqueueRuntimeAchievementNotices(previousAchievements, state.save?.achievements);
       showPanel();
     };
@@ -307,21 +680,26 @@ export function createApp() {
       onMainQuestAbandon() {
         changeQuest((current) => abandonMainQuest(current));
       },
-      onOpenArchive: handleDayNightControl,
+      onOpenArchive() {
+        openArchive({ returnMode: "panel" });
+      },
       onExit: exitToHome,
     });
   }
 
-  async function openArchive() {
-    if (state.mode !== "panel") return;
+  async function openArchive({ returnMode: requestedReturnMode = state.mode } = {}) {
+    if (!["panel", "quiet"].includes(requestedReturnMode)) return;
+    if (state.mode !== requestedReturnMode) return;
 
     const transitionId = ++state.transitionId;
     const now = new Date().toISOString();
-    const dateKey = now.slice(0, 10);
+    const dateKey = getLocalDateKey(new Date(now));
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
     const archive = normalizeAchievementArchive(state.save?.achievementArchive);
     const duration = getNightTransitionDuration(archive, dateKey, reducedMotion);
 
+    state.archiveReturnMode = requestedReturnMode;
+    cleanupActiveSequence();
     state.mode = "transitioning-night";
     dom.systemRoot.classList.add("is-transitioning-night");
 
@@ -335,18 +713,18 @@ export function createApp() {
       });
       dom.systemRoot.classList.remove("is-transitioning-night");
       dom.systemRoot.classList.add("is-night");
+      runtimeAudio.play("archive");
       showArchiveOrReview();
     } catch (error) {
       if (transitionId !== state.transitionId) return;
       dom.systemRoot.classList.remove("is-transitioning-night", "is-night");
-      state.mode = "panel";
       scene.toDay(250).catch?.(() => {});
-      showPanel({ persistGeneratedTasks: false });
+      showArchiveReturnTarget();
     }
   }
 
   async function returnToDay() {
-    if (!["archive", "archive-review", "archive-ceremony"].includes(state.mode)) return;
+    if (!["archive", "archive-review", "archive-ceremony", "first-signal-archive"].includes(state.mode)) return;
 
     const transitionId = ++state.transitionId;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -357,21 +735,58 @@ export function createApp() {
       await scene.toDay(reducedMotion ? 250 : 700);
       if (transitionId !== state.transitionId) return;
       clearNightClasses();
-      showPanel({ persistGeneratedTasks: false });
+      showArchiveReturnTarget();
     } catch (error) {
       if (transitionId !== state.transitionId) return;
       clearNightClasses();
-      showPanel({ persistGeneratedTasks: false });
+      showArchiveReturnTarget();
     }
   }
 
+  function showArchiveReturnTarget() {
+    const returnMode = state.archiveReturnMode;
+    state.archiveReturnMode = null;
+
+    if (returnMode === "quiet" && state.experienceMode === EXPERIENCE_MODES.V04) {
+      showQuiet();
+      return;
+    }
+
+    showPanel();
+  }
+
   function showArchiveOrReview() {
+    if (state.experienceMode === EXPERIENCE_MODES.V04 && state.archiveReturnMode === "quiet") {
+      showFirstSignalArchive();
+      return;
+    }
+
     const archive = normalizeAchievementArchive(state.save?.achievementArchive);
     if (archive.scanStatus === "complete") {
       showArchive();
     } else {
       showOldSaveReview();
     }
+  }
+
+  function showFirstSignalArchive() {
+    cleanupActiveSequence();
+    state.mode = "first-signal-archive";
+    dom.systemRoot.classList.remove("is-transitioning-night", "is-transitioning-day");
+    dom.systemRoot.classList.add("is-night");
+    setSystemVisible(dom.systemRoot, true);
+
+    const presenter = renderFirstSignalArchive(dom.systemRoot, {
+      save: state.save,
+      playerName: state.save?.profile?.nickname,
+      reducedMotion: prefersReducedMotion(),
+      onConfirm() {
+        state.save = saveLocalSave(confirmFirstSignalRecord(state.save));
+        runtimeAudio.play("confirmed");
+      },
+      onReturn: returnToDay,
+    });
+    activeSequenceCleanup = presenter.destroy;
   }
 
   function showArchive() {
@@ -452,8 +867,13 @@ export function createApp() {
       skipActiveTransition();
       return;
     }
-    if (state.mode === "panel") openArchive();
-    if (state.mode === "archive" || state.mode === "archive-review") returnToDay();
+    if (state.mode === "panel") openArchive({ returnMode: "panel" });
+    if (state.mode === "quiet") openArchive({ returnMode: "quiet" });
+    if (
+      state.mode === "archive"
+      || state.mode === "archive-review"
+      || state.mode === "first-signal-archive"
+    ) returnToDay();
   }
 
   function clearNightClasses() {
@@ -461,7 +881,14 @@ export function createApp() {
   }
 
   function clearV04Classes() {
-    dom.systemRoot.classList.remove("is-connection", "is-onboarding", "has-world-feedback");
+    dom.systemRoot.classList.remove(
+      "is-connection",
+      "is-onboarding",
+      "is-broadcast",
+      "is-first-day",
+      "is-quiet",
+      "has-world-feedback",
+    );
     delete dom.systemRoot.dataset.worldFeedback;
   }
 
@@ -469,6 +896,7 @@ export function createApp() {
     const cleanup = activeSequenceCleanup;
     activeSequenceCleanup = null;
     cleanup?.();
+    scene.abortPlayerSignalHandshake();
   }
 
   function routeThroughLegacyExperience() {
@@ -479,8 +907,56 @@ export function createApp() {
     }
   }
 
+  function showConnectionFailure(presenter, error, prefix) {
+    const message = error instanceof Error ? error.message : String(error || "未知错误");
+    presenter?.show({
+      id: "connection_error",
+      tone: "error",
+      text: `${prefix}：${message}`,
+      actions: [
+        { id: "retry", label: "重试" },
+        { id: "return_home", label: "返回首页" },
+      ],
+    });
+  }
+
+  function showRuntimeError(error, {
+    prefix = "运行状态异常",
+    onRetry = showConnection,
+  } = {}) {
+    cleanupActiveSequence();
+    state.mode = "runtime_error";
+    clearNightClasses();
+    clearV04Classes();
+    dom.systemRoot.replaceChildren();
+    setSystemVisible(dom.systemRoot, true);
+
+    const presenter = renderEarthConnectionSequence(dom.systemRoot, {
+      reducedMotion: prefersReducedMotion(),
+      onAction(action) {
+        if (action === "retry") onRetry();
+        if (action === "return_home") exitToHome();
+      },
+    });
+    activeSequenceCleanup = presenter.cleanup;
+    showConnectionFailure(presenter, error, prefix);
+  }
+
   function prefersReducedMotion() {
     return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  }
+
+  function delayWithSignal(duration, signal) {
+    if (signal?.aborted || duration <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      const timer = setTimeout(finish, duration);
+      signal?.addEventListener("abort", finish, { once: true });
+      function finish() {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", finish);
+        resolve();
+      }
+    });
   }
 
   function enqueueRuntimeAchievementNotices(previous, next) {
@@ -509,13 +985,22 @@ export function createApp() {
   }
 
   dom.stage.addEventListener("dblclick", enter);
+  dom.homeOverlay.addEventListener("click", (event) => {
+    if (event.target?.closest?.("[data-home-action='enter']")) {
+      void enter();
+    }
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     if (state.mode === "transitioning-night" || state.mode === "transitioning-day") {
       skipActiveTransition();
       return;
     }
-    if (state.mode === "archive" || state.mode === "archive-review") {
+    if (
+      state.mode === "archive"
+      || state.mode === "archive-review"
+      || state.mode === "first-signal-archive"
+    ) {
       returnToDay();
       return;
     }
@@ -535,16 +1020,40 @@ export function createApp() {
 
       delete dom.systemRoot.dataset.systemMessage;
       state.save = saveLocalSave(nextSave);
-      showPanel();
+      scene.setPlayerLocation(state.save.profile?.location);
+      if (state.experienceMode === EXPERIENCE_MODES.V04) {
+        state.connectionSnapshot = captureConnectionSnapshot(state.save);
+        const route = resolvePostConnectionRoute(state.experienceMode, state.save);
+        if (route === RUNTIME_ROUTES.BROADCAST) {
+          showBroadcast({
+            previousLastActiveAt: state.connectionSnapshot.previousLastActiveAt,
+          });
+        } else {
+          showOnboarding();
+        }
+      } else {
+        showPanel();
+      }
     } catch (error) {
-      dom.systemRoot.dataset.systemMessage = error?.message || "Save import failed";
-      showPanel({ persistGeneratedTasks: false });
+      if (state.experienceMode === EXPERIENCE_MODES.V04) {
+        showRuntimeError(error, {
+          prefix: "存档导入失败",
+          onRetry: showQuiet,
+        });
+      } else {
+        dom.systemRoot.dataset.systemMessage = error?.message || "Save import failed";
+        showPanel();
+      }
     }
   });
 
   renderHome(dom.homeOverlay);
   setSystemVisible(dom.systemRoot, false);
   scene.start();
+  void scene.applyInitialFraming({
+    reducedMotion: prefersReducedMotion(),
+    duration: prefersReducedMotion() ? 0 : 900,
+  });
 
   return {
     enter,

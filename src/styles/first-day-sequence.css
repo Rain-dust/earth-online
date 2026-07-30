@@ -1,0 +1,533 @@
+#system-root.is-first-day {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.first-day-sequence {
+  --first-day-gold: #e4b84f;
+  --first-day-ivory: #fff4d6;
+  --first-day-cyan: #bfeeff;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: rgba(237, 248, 251, 0.96);
+}
+
+.first-day-identity {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.12rem 0.65rem;
+  min-width: 13rem;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #020711, 0 0 5px #020711;
+  transition: opacity 180ms ease;
+}
+
+.first-day-identity::before {
+  position: absolute;
+  top: 0.95rem;
+  left: -3.1rem;
+  width: 2.4rem;
+  height: 1px;
+  background: rgba(220, 243, 250, 0.64);
+  box-shadow: 0 0 5px rgba(165, 225, 247, 0.48);
+  content: "";
+}
+
+.first-day-identity.opens-left::before {
+  right: -3.1rem;
+  left: auto;
+}
+
+.first-day-identity.is-visible {
+  opacity: 1;
+}
+
+.first-day-identity strong {
+  color: #f3fbfd;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.first-day-identity span {
+  align-self: center;
+  color: rgba(215, 239, 247, 0.7);
+  font-size: 0.72rem;
+}
+
+.first-day-identity small {
+  grid-column: 1 / -1;
+  color: rgba(207, 229, 238, 0.54);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.62rem;
+}
+
+.first-day-achievement {
+  position: absolute;
+  z-index: 7;
+  right: 1.75rem;
+  bottom: 1.75rem;
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 1.1rem;
+  width: min(29.4rem, calc(100vw - 3.5rem));
+  min-height: 7.75rem;
+  padding: 0.8rem 1.1rem 0.8rem 0.8rem;
+  overflow: hidden;
+  border: 1px solid rgba(76, 99, 124, 0.64);
+  border-radius: 6px;
+  color: #f5f7f8;
+  background: #03070b;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(calc(100% + 3rem), 0, 0) scale(0.98);
+  transform-origin: 100% 100%;
+}
+
+.first-day-achievement::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--first-day-gold);
+  box-shadow: 0 0 12px rgba(228, 184, 79, 0.62);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.first-day-achievement::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 238, 190, 0.72);
+  box-shadow: 0 0 14px rgba(228, 184, 79, 0.7);
+  content: "";
+  opacity: 0;
+}
+
+.first-day-achievement-art {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+  overflow: hidden;
+  background: #000;
+}
+
+.first-day-achievement-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.first-day-achievement-copy {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+.first-day-achievement-copy small,
+.first-day-achievement-copy strong,
+.first-day-achievement-copy span,
+.first-day-achievement-copy em {
+  letter-spacing: 0;
+}
+
+.first-day-achievement-copy small {
+  color: var(--first-day-gold);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.first-day-achievement-copy strong {
+  margin-top: 0.18rem;
+  color: var(--first-day-ivory);
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-size: 1.55rem;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.first-day-achievement-copy > span {
+  margin-top: 0.38rem;
+  color: rgba(236, 242, 245, 0.84);
+  font-size: 0.86rem;
+}
+
+.first-day-achievement-copy em {
+  margin-top: 0.45rem;
+  color: rgba(192, 207, 215, 0.54);
+  font-size: 0.67rem;
+  font-style: normal;
+}
+
+.first-day-sequence[data-first-day-phase="revealed"] .first-day-achievement {
+  animation: first-day-achievement-arrive 560ms cubic-bezier(0.17, 0.84, 0.28, 1) both;
+}
+
+.first-day-sequence[data-first-day-phase="revealed"] .first-day-achievement::before {
+  animation: first-day-achievement-trace 420ms cubic-bezier(0.16, 0.74, 0.2, 1) 120ms both;
+}
+
+.first-day-sequence[data-first-day-phase="revealed"] .first-day-achievement::after {
+  animation: first-day-achievement-flash 620ms ease 90ms both;
+}
+
+.first-day-sequence[data-first-day-phase="revealed"] .first-day-achievement-art {
+  animation: first-day-icon-settle 520ms cubic-bezier(0.17, 0.84, 0.28, 1) 80ms both;
+}
+
+.first-day-sequence[data-first-day-phase="leaving"] .first-day-achievement {
+  opacity: 0;
+  transform: translate3d(1.75rem, 0.5rem, 0) scale(0.99);
+  transition: opacity 300ms ease, transform 360ms ease;
+}
+
+.first-day-daily-link {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.first-day-daily-link path {
+  fill: none;
+  stroke: rgba(191, 238, 255, 0.64);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 4px rgba(131, 219, 250, 0.42));
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.first-day-daily {
+  position: absolute;
+  z-index: 6;
+  top: clamp(10.5rem, 27vh, 17rem);
+  right: clamp(2.1rem, 6vw, 6rem);
+  width: min(23rem, calc(100vw - 4rem));
+  padding-left: 1.1rem;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 2px 3px #020711, 0 0 8px #020711;
+  transform: translate3d(1.1rem, 0, 0);
+}
+
+.first-day-daily::before {
+  position: absolute;
+  top: 0.1rem;
+  bottom: 0.1rem;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    var(--first-day-gold),
+    rgba(191, 238, 255, 0.72) 55%,
+    transparent
+  );
+  box-shadow: 0 0 9px rgba(146, 222, 249, 0.38);
+  content: "";
+}
+
+.first-day-daily.opens-left {
+  right: auto;
+  left: clamp(2.1rem, 6vw, 6rem);
+  padding-right: 1.1rem;
+  padding-left: 0;
+  text-align: right;
+  transform: translate3d(-1.1rem, 0, 0);
+}
+
+.first-day-daily.opens-left::before {
+  right: 0;
+  left: auto;
+}
+
+.first-day-daily p,
+.first-day-daily h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.first-day-daily p {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  color: rgba(191, 238, 255, 0.72);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.62rem;
+}
+
+.first-day-daily.opens-left p {
+  justify-content: flex-end;
+}
+
+.first-day-daily p i {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: var(--first-day-gold);
+  box-shadow: 0 0 9px rgba(255, 216, 142, 0.86);
+}
+
+.first-day-daily h2 {
+  max-width: 13em;
+  margin-top: 0.8rem;
+  color: #f1f9fb;
+  font-size: clamp(1.55rem, 2.25vw, 2.15rem);
+  font-weight: 580;
+  line-height: 1.28;
+}
+
+.first-day-daily.opens-left h2 {
+  margin-left: auto;
+}
+
+.first-day-daily > small {
+  display: block;
+  margin-top: 0.8rem;
+  color: rgba(210, 232, 240, 0.5);
+  font-size: 0.72rem;
+}
+
+.first-day-daily button {
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(191, 238, 255, 0.35);
+  padding: 0.25rem 0;
+  background: transparent;
+  color: rgba(214, 238, 247, 0.72);
+  font-size: 0.76rem;
+  pointer-events: auto;
+}
+
+.first-day-daily button:hover,
+.first-day-daily button:focus-visible {
+  border-bottom-color: rgba(255, 224, 160, 0.8);
+  outline: 0;
+  color: #fff4d6;
+}
+
+.first-day-sequence[data-first-day-phase="task-ping"] .first-day-daily-link,
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-daily-link {
+  opacity: 1;
+}
+
+.first-day-sequence[data-first-day-phase="task-ping"] .first-day-daily-link path {
+  animation: first-day-link-arrive 520ms cubic-bezier(0.17, 0.78, 0.22, 1) both;
+}
+
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-daily-link path {
+  opacity: 0.52;
+  stroke-dashoffset: 0;
+}
+
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-daily {
+  pointer-events: auto;
+  animation: first-day-daily-arrive 480ms cubic-bezier(0.17, 0.78, 0.22, 1) both;
+}
+
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-identity {
+  opacity: 0.52;
+}
+
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-daily p i {
+  animation: first-day-dot-live 2.8s ease-in-out infinite;
+}
+
+@keyframes first-day-achievement-arrive {
+  0% {
+    opacity: 0;
+    transform: translate3d(calc(100% + 3rem), 0, 0) scale(0.98);
+  }
+  62% {
+    opacity: 1;
+    transform: translate3d(-0.65rem, 0, 0) scale(1);
+  }
+  80% { transform: translate3d(0.25rem, 0, 0) scale(1); }
+  92% { transform: translate3d(-0.12rem, 0, 0) scale(1); }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes first-day-achievement-trace {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes first-day-achievement-flash {
+  0% { opacity: 0; transform: translateX(0); }
+  28% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(29rem); }
+}
+
+@keyframes first-day-icon-settle {
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  48% { filter: brightness(1.2); transform: scale(1.045); }
+}
+
+@keyframes first-day-link-arrive {
+  0% { opacity: 0; stroke-dashoffset: 1; }
+  18% { opacity: 1; }
+  100% { opacity: 0.72; stroke-dashoffset: 0; }
+}
+
+@keyframes first-day-daily-arrive {
+  from { opacity: 0; transform: translate3d(1.1rem, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.first-day-sequence[data-first-day-phase="task-live"] .first-day-daily.opens-left {
+  animation-name: first-day-daily-arrive-left;
+}
+
+@keyframes first-day-daily-arrive-left {
+  from { opacity: 0; transform: translate3d(-1.1rem, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes first-day-dot-live {
+  0%, 70%, 100% { opacity: 0.62; transform: scale(1); }
+  82% { opacity: 1; transform: scale(1.45); }
+}
+
+@media (max-width: 700px) {
+  .first-day-identity {
+    min-width: 10.25rem;
+  }
+
+  .first-day-identity::before,
+  .first-day-identity.opens-left::before {
+    top: -1.15rem;
+    right: auto;
+    left: 50%;
+    width: 1px;
+    height: 0.75rem;
+  }
+
+  .first-day-achievement {
+    right: 1rem;
+    bottom: 1.35rem;
+    grid-template-columns: 4.9rem minmax(0, 1fr);
+    gap: 0.8rem;
+    width: calc(100vw - 2rem);
+    min-height: 6.75rem;
+    padding: 0.75rem;
+    transform: translate3d(0, calc(100% + 2rem), 0) scale(0.985);
+  }
+
+  .first-day-achievement-art {
+    width: 4.9rem;
+    height: 4.9rem;
+  }
+
+  .first-day-achievement-copy strong {
+    font-size: 1.28rem;
+  }
+
+  .first-day-achievement-copy > span {
+    font-size: 0.78rem;
+  }
+
+  .first-day-daily-link {
+    display: none;
+  }
+
+  .first-day-daily,
+  .first-day-daily.opens-left {
+    top: auto;
+    right: 1.15rem;
+    bottom: max(1.6rem, env(safe-area-inset-bottom));
+    left: 1.15rem;
+    width: auto;
+    padding: 0.9rem 0 0;
+    text-align: left;
+    transform: translate3d(0, 1.1rem, 0);
+  }
+
+  .first-day-daily::before,
+  .first-day-daily.opens-left::before {
+    top: 0;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--first-day-gold),
+      rgba(191, 238, 255, 0.65) 48%,
+      transparent
+    );
+  }
+
+  .first-day-daily.opens-left p {
+    justify-content: flex-start;
+  }
+
+  .first-day-daily h2,
+  .first-day-daily.opens-left h2 {
+    max-width: 15em;
+    margin-left: 0;
+    font-size: 1.55rem;
+  }
+
+  .first-day-sequence[data-first-day-phase="task-live"] .first-day-daily,
+  .first-day-sequence[data-first-day-phase="task-live"] .first-day-daily.opens-left {
+    animation-name: first-day-daily-arrive-mobile;
+  }
+
+  @keyframes first-day-achievement-arrive {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, calc(100% + 2rem), 0) scale(0.985);
+    }
+    64% {
+      opacity: 1;
+      transform: translate3d(0, -0.55rem, 0) scale(1);
+    }
+    82% { transform: translate3d(0, 0.25rem, 0) scale(1); }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes first-day-daily-arrive-mobile {
+    from { opacity: 0; transform: translate3d(0, 1.1rem, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-day-achievement,
+  .first-day-achievement::before,
+  .first-day-achievement::after,
+  .first-day-achievement-art,
+  .first-day-daily-link path,
+  .first-day-daily,
+  .first-day-daily p i {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

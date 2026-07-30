@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LINK START! 成就解锁 · 地球 Online</title>
+    <base href="../" />
+    <link rel="stylesheet" href="./qa/player-signal-anchor-study.css" />
+    <link rel="stylesheet" href="./qa/link-start-achievement-motion.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.185.1"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main
+      id="achievement-study"
+      class="anchor-study achievement-study"
+      data-variant="lock"
+      data-phase="idle"
+    >
+      <div id="earth-stage" class="earth-stage" aria-hidden="true"></div>
+
+      <header class="study-header">
+        <p>ACHIEVEMENT UNLOCK / MOTION STUDY</p>
+        <strong id="study-title">首次连接成就</strong>
+      </header>
+
+      <section id="signal-layer" class="signal-layer" aria-label="玩家城市信号">
+        <button
+          id="player-signal"
+          class="player-signal"
+          type="button"
+          aria-label="重播 LINK START 成就"
+        >
+          <span class="signal-contrast" aria-hidden="true"></span>
+
+          <span class="city-light-field" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+
+          <span class="lock-visual" aria-hidden="true">
+            <i class="lock-corner lock-corner-nw"></i>
+            <i class="lock-corner lock-corner-ne"></i>
+            <i class="lock-corner lock-corner-se"></i>
+            <i class="lock-corner lock-corner-sw"></i>
+            <i class="lock-core"></i>
+          </span>
+        </button>
+
+        <div id="signal-identity" class="signal-identity">
+          <strong id="city-name">上海</strong>
+          <span class="identity-state">玩家坐标已确认</span>
+          <span id="city-coordinates" class="identity-coordinates">
+            31.23 N · 121.47 E
+          </span>
+        </div>
+      </section>
+
+      <aside
+        id="achievement-toast"
+        class="achievement-toast"
+        aria-label="成就已解锁"
+        aria-hidden="true"
+        inert
+      >
+        <div class="achievement-art">
+          <img
+            src="./assets/achievements/link-start.png"
+            alt=""
+            width="96"
+            height="96"
+          />
+        </div>
+
+        <div class="achievement-copy">
+          <p class="achievement-kicker">成就已解锁</p>
+          <h1>LINK START!</h1>
+          <p class="achievement-description">成功接入地球 Online</p>
+          <p class="achievement-rarity">100% 的玩家拥有此成就</p>
+        </div>
+      </aside>
+
+      <p class="study-note">
+        点击玩家坐标可重播，并试听解锁音效。
+      </p>
+    </main>
+
+    <script type="module" src="./qa/link-start-achievement-motion.mjs"></script>
+  </body>
+</html>

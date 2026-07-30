@@ -6,6 +6,7 @@ import {
   createEmptyOnboarding,
   normalizeOnboarding,
 } from "./player-profile.mjs";
+import { normalizePlayerLocation } from "./player-location.mjs";
 
 export const SAVE_FORMAT = "earth-online-save-v1";
 export const STORAGE_KEY = "earth-online-save-v1";
@@ -119,6 +120,32 @@ export function loadLocalSave(storage) {
   return importSave(raw);
 }
 
+export function readLocalSaveSnapshot(storage) {
+  let resolvedStorage;
+
+  try {
+    resolvedStorage = storage === undefined ? globalThis.localStorage : storage;
+  } catch (error) {
+    return createReadError(error);
+  }
+
+  if (!resolvedStorage) {
+    return createReadError(new Error("Local storage is unavailable"));
+  }
+
+  try {
+    const raw = resolvedStorage.getItem(STORAGE_KEY);
+
+    if (!raw) {
+      return { status: "empty", save: createEmptySave(), error: null };
+    }
+
+    return { status: "found", save: importSave(raw), error: null };
+  } catch (error) {
+    return createReadError(error);
+  }
+}
+
 export function saveLocalSave(save, storage) {
   const resolvedStorage = storage === undefined ? getDefaultStorage() : storage;
 
@@ -147,6 +174,7 @@ function mergeWithDefaults(save, defaults) {
     ...defaults,
     ...save,
     schemaVersion: SCHEMA_VERSION,
+    profile: normalizeProfile(save.profile),
     onboarding: normalizeOnboarding(save.onboarding, {
       hasProfile: Boolean(save.profile && typeof save.profile === "object"),
     }),
@@ -171,6 +199,23 @@ function mergeWithDefaults(save, defaults) {
     tags: Array.isArray(save.tags) ? save.tags : defaults.tags,
     correctionLog: Array.isArray(save.correctionLog) ? save.correctionLog : defaults.correctionLog,
     customTaskPool: Array.isArray(save.customTaskPool) ? save.customTaskPool : defaults.customTaskPool,
+  };
+}
+
+function normalizeProfile(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const { location, ...profile } = value;
+  const normalized = normalizePlayerLocation(value);
+  profile.locationSetupStatus = normalized.locationSetupStatus;
+  if (normalized.location) profile.location = normalized.location;
+  return profile;
+}
+
+function createReadError(error) {
+  return {
+    status: "error",
+    save: null,
+    error: error instanceof Error ? error : new Error(String(error || "Local save read failed")),
   };
 }
 
