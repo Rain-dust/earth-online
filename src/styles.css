@@ -66,22 +66,20 @@ button:hover {
   align-items: end;
   padding: clamp(1.5rem, 5vw, 4rem);
   pointer-events: none;
+  will-change: opacity, transform;
   transition:
-    opacity 700ms ease,
-    filter 900ms ease,
-    transform 900ms ease;
+    opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body.is-zooming #home-overlay {
   opacity: 0;
-  filter: blur(8px);
-  transform: translateX(-24px);
+  transform: translate3d(-18px, 0, 0);
 }
 
 .home-overlay.is-hidden {
   opacity: 0;
-  filter: blur(8px);
-  transform: translateX(-24px);
+  transform: translate3d(-18px, 0, 0);
 }
 
 .player-count {
@@ -2242,6 +2240,112 @@ body.is-zooming #home-overlay {
 .earth-connection-signal[data-tone="error"]::before {
   background: rgba(255, 170, 147, 0.88);
   box-shadow: 0 0 12px rgba(255, 134, 106, 0.45);
+}
+
+.connection-player-lock {
+  position: absolute;
+  z-index: 4;
+  width: 94px;
+  height: 94px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, -50%, 0) scale(0.92);
+  filter: drop-shadow(0 0 12px rgba(111, 218, 255, 0.28));
+  transition:
+    opacity 180ms ease,
+    transform 420ms cubic-bezier(0.16, 0.76, 0.2, 1);
+}
+
+.connection-player-lock.is-visible {
+  opacity: 1;
+  transform: translate3d(-50%, -50%, 0) scale(1);
+}
+
+.connection-lock-corner,
+.connection-lock-core,
+.connection-lock-pulse {
+  position: absolute;
+  display: block;
+}
+
+.connection-lock-corner {
+  width: 22px;
+  height: 16px;
+  border-color: rgba(209, 246, 255, 0.96);
+  filter: drop-shadow(0 0 4px rgba(104, 217, 255, 0.56));
+}
+
+.connection-lock-nw {
+  top: 18px;
+  left: 17px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.connection-lock-ne {
+  top: 17px;
+  right: 18px;
+  border-top: 2px solid;
+  border-right: 2px solid;
+}
+
+.connection-lock-se {
+  right: 17px;
+  bottom: 18px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+.connection-lock-sw {
+  bottom: 17px;
+  left: 18px;
+  border-bottom: 2px solid;
+  border-left: 2px solid;
+}
+
+.connection-lock-core {
+  top: 50%;
+  left: 50%;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(3, 12, 22, 0.88);
+  border-radius: 50%;
+  background: #ffe0a0;
+  box-shadow:
+    0 0 0 1px rgba(231, 249, 255, 0.9),
+    0 0 16px 5px rgba(255, 208, 123, 0.42);
+  transform: translate(-50%, -50%);
+}
+
+.connection-lock-core::after {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: #fffaf0;
+  content: "";
+}
+
+.connection-lock-pulse {
+  inset: 27px;
+  border: 1px solid rgba(180, 237, 255, 0.7);
+  border-radius: 50%;
+  animation: connection-lock-breathe 1.7s ease-in-out infinite;
+}
+
+@keyframes connection-lock-breathe {
+  0%, 100% { opacity: 0.34; transform: scale(0.82); }
+  50% { opacity: 0.82; transform: scale(1.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-player-lock {
+    transition-duration: 120ms;
+  }
+
+  .connection-lock-pulse {
+    opacity: 0.58;
+    animation: none;
+  }
 }
 
 /* v0.4 world runtime */

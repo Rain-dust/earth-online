@@ -5,6 +5,7 @@ const ANCHOR_RADIUS = 101.8;
 const ANCHOR_STATES = new Set(["hidden", "acquiring", "awake"]);
 const WARM_WHITE = 0xfff7df;
 const MICRO_GOLD = 0xffd991;
+const LOCK_BLUE = 0x7fe7ff;
 
 export class PlayerSignalAnchor {
   constructor(parent) {
@@ -15,31 +16,50 @@ export class PlayerSignalAnchor {
     this.activePulse = null;
 
     this.coreMaterial = new THREE.MeshBasicMaterial({
-      color: WARM_WHITE,
+      color: MICRO_GOLD,
       transparent: true,
       opacity: 1,
       depthTest: true,
     });
-    this.core = new THREE.Mesh(new THREE.SphereGeometry(0.52, 20, 20), this.coreMaterial);
+    this.core = new THREE.Mesh(new THREE.SphereGeometry(0.78, 20, 20), this.coreMaterial);
+    this.innerCore = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 16, 16),
+      new THREE.MeshBasicMaterial({
+        color: WARM_WHITE,
+        transparent: true,
+        opacity: 0.96,
+        depthTest: true,
+      }),
+    );
+    this.innerCore.position.z = 0.58;
     this.glowMaterial = new THREE.MeshBasicMaterial({
       color: MICRO_GOLD,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.24,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       depthTest: true,
     });
     this.glow = new THREE.Mesh(
-      new THREE.SphereGeometry(1.35, 24, 24),
+      new THREE.SphereGeometry(2.08, 24, 24),
       this.glowMaterial,
     );
+    this.lockMaterial = new THREE.MeshBasicMaterial({
+      color: LOCK_BLUE,
+      transparent: true,
+      opacity: 0.82,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+    });
+    this.lockCorners = createLockCorners(this.lockMaterial);
     const hitTarget = new THREE.Mesh(
       new THREE.SphereGeometry(3.2, 16, 16),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     hitTarget.name = "player-signal-hit-target";
     hitTarget.userData.playerSignalTarget = true;
-    this.group.add(this.core, this.glow, hitTarget);
+    this.group.add(this.core, this.innerCore, this.glow, this.lockCorners, hitTarget);
     parent.add(this.group);
   }
 
@@ -67,7 +87,9 @@ export class PlayerSignalAnchor {
     this.state = state;
     this.group.visible = state !== "hidden";
     this.coreMaterial.opacity = state === "acquiring" ? 0.34 : 1;
-    this.glowMaterial.opacity = state === "acquiring" ? 0.08 : 0.18;
+    this.innerCore.material.opacity = state === "acquiring" ? 0.46 : 0.96;
+    this.glowMaterial.opacity = state === "acquiring" ? 0.11 : 0.24;
+    this.lockMaterial.opacity = state === "acquiring" ? 0.34 : 0.82;
     if (state === "hidden") {
       this.clearPulse();
     }
@@ -108,7 +130,10 @@ export class PlayerSignalAnchor {
 
   update(now = performance.now()) {
     if (this.state === "awake") {
-      this.glowMaterial.opacity = 0.17 + Math.sin(now * 0.0024) * 0.035;
+      const breath = Math.sin(now * 0.0024);
+      this.glowMaterial.opacity = 0.23 + breath * 0.045;
+      this.lockMaterial.opacity = 0.78 + breath * 0.06;
+      this.lockCorners.scale.setScalar(1 + breath * 0.018);
     }
     if (!this.activePulse) {
       return;
@@ -148,6 +173,41 @@ export class PlayerSignalAnchor {
     }
     this.group.removeFromParent();
   }
+}
+
+function createLockCorners(material) {
+  const corners = new THREE.Group();
+  corners.name = "player-signal-lock-corners";
+  const extent = 6.2;
+  const arm = 3.05;
+  const thickness = 0.28;
+  const depth = 0.08;
+
+  for (const xDirection of [-1, 1]) {
+    for (const yDirection of [-1, 1]) {
+      const horizontal = new THREE.Mesh(
+        new THREE.BoxGeometry(arm, thickness, depth),
+        material,
+      );
+      horizontal.position.set(
+        xDirection * (extent - arm / 2),
+        yDirection * extent,
+        0.08,
+      );
+      const vertical = new THREE.Mesh(
+        new THREE.BoxGeometry(thickness, arm, depth),
+        material,
+      );
+      vertical.position.set(
+        xDirection * extent,
+        yDirection * (extent - arm / 2),
+        0.08,
+      );
+      corners.add(horizontal, vertical);
+    }
+  }
+
+  return corners;
 }
 
 function updateRing(mesh, progress) {

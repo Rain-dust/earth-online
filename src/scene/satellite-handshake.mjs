@@ -14,6 +14,7 @@ export const HANDSHAKE_TIMINGS = Object.freeze({
     completeAt: 2300,
   }),
 });
+const REDUCED_FOCUS_DURATION = 720;
 
 export function createSatelliteHandshake(handlers = {}) {
   let activeSequence = null;
@@ -81,9 +82,9 @@ export function createSatelliteHandshake(handlers = {}) {
 
     handlers.onAcquireSatellite?.({ location, mode, animated: !reducedMotion });
     handlers.onAnchorState?.("acquiring", location);
-    Promise.resolve(
+    const focusPromise = Promise.resolve(
       handlers.focusLocation?.(location, {
-        duration: reducedMotion ? 0 : timing.focusDuration,
+        duration: reducedMotion ? REDUCED_FOCUS_DURATION : timing.focusDuration,
         reducedMotion,
       }),
     ).catch(() => finish("aborted"));
@@ -92,8 +93,11 @@ export function createSatelliteHandshake(handlers = {}) {
       handlers.onDownlink?.({ location, animated: false });
       handlers.onAnchorState?.("awake", location);
       handlers.onReturnPulse?.({ location, animated: false });
-      handlers.onComplete?.({ location, mode });
-      finish("completed");
+      focusPromise.then(() => {
+        if (settled) return;
+        handlers.onComplete?.({ location, mode });
+        finish("completed");
+      });
       return promise;
     }
 

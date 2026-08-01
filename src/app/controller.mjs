@@ -132,14 +132,12 @@ export function createApp() {
   function hideHomeOverlay() {
     dom.homeOverlay.classList.add("is-hidden");
     dom.homeOverlay.style.opacity = "0";
-    dom.homeOverlay.style.filter = "blur(8px)";
-    dom.homeOverlay.style.transform = "translateX(-24px)";
+    dom.homeOverlay.style.transform = "translate3d(-18px, 0, 0)";
   }
 
   function showHomeOverlay() {
     dom.homeOverlay.classList.remove("is-hidden");
     dom.homeOverlay.style.opacity = "";
-    dom.homeOverlay.style.filter = "";
     dom.homeOverlay.style.transform = "";
   }
 
@@ -242,16 +240,20 @@ export function createApp() {
       });
       if (!await presenter.wait() || state.mode !== "connecting") return;
 
-      const savedLocation = state.save.profile?.location;
+      const savedLocation = state.save.profile?.location
+        || state.save.onboarding?.draft?.location;
       if (savedLocation) {
         presenter.show({
           id: "restoring_signal",
           text: `正在重新连接 ${savedLocation.city || "已存档城市"} 的玩家信号……`,
         });
+        presenter.showAnchor({
+          subscribe: (callback) => scene.subscribeLocationProjection(savedLocation, callback),
+        });
         const handshake = await scene.establishPlayerSignal(savedLocation, {
           reducedMotion: prefersReducedMotion(),
           mode: "restore",
-        });
+        }).finally(() => presenter.hideAnchor());
         if (handshake.status !== "completed" || state.mode !== "connecting") return;
         runtimeAudio.play("confirmed");
       }
@@ -289,6 +291,7 @@ export function createApp() {
 
   function showOnboarding() {
     cleanupActiveSequence();
+    scene.setConnectionLiveliness(false);
     state.mode = "onboarding";
     clearNightClasses();
     clearV04Classes();
@@ -375,6 +378,7 @@ export function createApp() {
 
   function showBroadcast({ previousLastActiveAt = null } = {}) {
     cleanupActiveSequence();
+    scene.setConnectionLiveliness(false);
     state.mode = "broadcast";
     clearNightClasses();
     clearV04Classes();
@@ -1028,6 +1032,7 @@ export function createApp() {
     if (
       state.mode === "archive"
       || state.mode === "archive-review"
+      || state.mode === "archive-signal-review"
       || state.mode === "first-signal-archive"
     ) returnToDay();
   }
@@ -1137,6 +1142,7 @@ export function createApp() {
     setSystemVisible(dom.systemRoot, false);
     showHomeOverlay();
     dom.body.classList.remove("is-zooming");
+    scene.resetToDay();
     scene.home();
   }
 
@@ -1155,6 +1161,7 @@ export function createApp() {
     if (
       state.mode === "archive"
       || state.mode === "archive-review"
+      || state.mode === "archive-signal-review"
       || state.mode === "first-signal-archive"
     ) {
       returnToDay();

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { getHomeMarkup, renderHome } from "../../src/ui/home.mjs";
 
 test("home first frame includes worldview, radio command and lower-priority NPC note", () => {
@@ -45,4 +46,15 @@ test("home icon rendering and dynamic population cleanup are both exposed", () =
   } finally {
     globalThis.lucide = previousLucide;
   }
+});
+
+test("home exit avoids an expensive full-screen blur transition", async () => {
+  const styles = await readFile(new URL("../../src/styles.css", import.meta.url), "utf8");
+  const overlayStart = styles.indexOf(".home-overlay {");
+  const overlayEnd = styles.indexOf(".player-count {", overlayStart);
+  const overlayStyles = styles.slice(overlayStart, overlayEnd);
+
+  assert.match(overlayStyles, /will-change: opacity, transform/);
+  assert.match(overlayStyles, /translate3d\(-18px, 0, 0\)/);
+  assert.doesNotMatch(overlayStyles, /blur\(/);
 });

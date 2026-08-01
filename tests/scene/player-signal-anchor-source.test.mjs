@@ -13,7 +13,7 @@ test("player signal anchor is a single reusable object with one-shot pulse and c
   assert.doesNotMatch(source, /setInterval|repeat|Infinity/);
 });
 
-test("player signal anchor has explicit states, two warm rings, and a stable core", async () => {
+test("player signal anchor has explicit states, lock corners, warm rings, and a stable core", async () => {
   const source = await readFile(new URL("../../src/scene/player-signal-anchor.mjs", import.meta.url), "utf8");
 
   assert.match(source, /\["hidden", "acquiring", "awake"\]/);
@@ -21,6 +21,10 @@ test("player signal anchor has explicit states, two warm rings, and a stable cor
   assert.match(source, /secondMesh/);
   assert.match(source, /WARM_WHITE/);
   assert.match(source, /MICRO_GOLD/);
+  assert.match(source, /LOCK_BLUE/);
+  assert.match(source, /createLockCorners/);
+  assert.match(source, /player-signal-lock-corners/);
+  assert.match(source, /new THREE\.BoxGeometry\(arm, thickness, depth\)/);
   assert.doesNotMatch(source, /core\.scale|this\.core\.scale/);
 });
 

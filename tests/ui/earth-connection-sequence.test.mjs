@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   CONNECTION_ROUTES,
   getConnectionSignalInterval,
@@ -86,6 +87,19 @@ test("connection sequence cleanup cancels pending minimum waits", async () => {
   assert.equal(await waitResult, false);
   assert.ok(jobs.every((job) => job.cancelled));
   assert.equal(root.classList.has("is-connection"), false);
+});
+
+test("connection presenter exposes the approved projected lock anchor", async () => {
+  const source = await readFile(
+    new URL("../../src/ui/earth-connection-sequence.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /connection-player-lock/);
+  assert.match(source, /connection-lock-nw/);
+  assert.match(source, /connection-lock-core/);
+  assert.match(source, /projection\.visible/);
+  assert.match(source, /unsubscribeAnchor\?\.\(\)/);
 });
 
 function createRoot() {

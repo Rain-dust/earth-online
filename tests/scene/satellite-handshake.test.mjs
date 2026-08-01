@@ -33,7 +33,7 @@ test("reduced motion preserves the complete handshake state without timers", asy
   assert.deepEqual(events, [
     ["satellite", false],
     ["anchor", "acquiring"],
-    ["focus", 0],
+    ["focus", 720],
     ["downlink", false],
     ["anchor", "awake"],
     ["return", false],

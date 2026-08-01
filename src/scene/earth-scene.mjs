@@ -20,9 +20,9 @@ const GLOBE_RADIUS = 100;
 const ANCHOR_PROJECTION_RADIUS = 101.8;
 const LOOK_AT = new THREE.Vector3(0, 0, 0);
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
+const REDUCED_CAMERA_DURATION = 600;
 const INITIAL_EARTH_ROTATION = -0.58;
 const HOME_ROTATION_SPEED = 0.045;
-const FOCUS_ROTATION_SPEED = 0.012;
 const NIGHT_ROTATION_DELTA = Math.PI * 0.7;
 const DAY_ATMOSPHERE_OPACITY = 0.29;
 const NIGHT_ATMOSPHERE_OPACITY = 0.18;
@@ -148,7 +148,16 @@ export function createEarthScene(stage) {
   const orbitalNetwork = createOrbitalNetwork();
   earthGroup.add(orbitalNetwork);
   const playerSignalAnchor = new PlayerSignalAnchor(earthGroup);
-  const handshakeVisual = createHandshakeVisual(earthGroup, orbitalNetwork);
+  let signalLiveliness = 0;
+  let connectionLivelinessActive = false;
+  let handshakeLivelinessActive = false;
+  let signalLivelinessTarget = 0;
+  const handshakeVisual = createHandshakeVisual(earthGroup, orbitalNetwork, {
+    onActiveChange(active) {
+      handshakeLivelinessActive = active;
+      refreshSignalLivelinessTarget();
+    },
+  });
 
   const stars = createStars();
   scene.add(stars);
@@ -218,6 +227,7 @@ export function createEarthScene(stage) {
     handshakeVisual.update();
     updateTween();
     updateVisualTween();
+    updateSignalLiveliness(ambientDelta);
     updateEarthTween();
     playerSignalAnchor.update(performance.now());
     notifyProjectionSubscribers();
@@ -263,15 +273,24 @@ export function createEarthScene(stage) {
 
   function focus(options = {}) {
     const reducedMotion = options.reducedMotion ?? prefersReducedMotion();
-    rotationSpeed = FOCUS_ROTATION_SPEED;
+    setConnectionLiveliness(true);
     return applyViewPreset("connection", { reducedMotion });
   }
 
   function home(options = {}) {
     const reducedMotion = options.reducedMotion ?? prefersReducedMotion();
-    rotationSpeed = HOME_ROTATION_SPEED;
+    setConnectionLiveliness(false);
     locationRotationLocked = false;
     return applyViewPreset("home", { reducedMotion });
+  }
+
+  function setConnectionLiveliness(active) {
+    connectionLivelinessActive = Boolean(active);
+    refreshSignalLivelinessTarget();
+  }
+
+  function refreshSignalLivelinessTarget() {
+    signalLivelinessTarget = connectionLivelinessActive || handshakeLivelinessActive ? 1 : 0;
   }
 
   function applyViewPreset(name, { duration, reducedMotion = false } = {}) {
@@ -284,9 +303,17 @@ export function createEarthScene(stage) {
         resolve();
       }
     }
-    rotationSpeed = preset.rotationSpeed;
-    const target = new THREE.Vector3(...preset.camera);
-    return tweenCamera(target, reducedMotion ? 0 : (duration ?? preset.duration));
+    const presetCamera = new THREE.Vector3(...preset.camera);
+    const target = name === "connection"
+      ? camera.position.clone().normalize().multiplyScalar(presetCamera.length())
+      : presetCamera;
+    return tweenCamera(
+      target,
+      reducedMotion
+        ? Math.min(duration ?? preset.duration, REDUCED_CAMERA_DURATION)
+        : (duration ?? preset.duration),
+      preset.rotationSpeed,
+    );
   }
 
   async function applyInitialFraming({
@@ -309,10 +336,12 @@ export function createEarthScene(stage) {
       .normalize()
       .multiplyScalar(new THREE.Vector3(...locationPreset.camera).length())
       .applyAxisAngle(WORLD_UP, earthGroup.rotation.y);
-    rotationSpeed = locationPreset.rotationSpeed;
     await tweenCamera(
       targetCamera,
-      reducedMotion ? 0 : (duration ?? locationPreset.duration),
+      reducedMotion
+        ? Math.min(duration ?? locationPreset.duration, REDUCED_CAMERA_DURATION)
+        : (duration ?? locationPreset.duration),
+      locationPreset.rotationSpeed,
     );
   }
 
@@ -402,6 +431,15 @@ export function createEarthScene(stage) {
     });
   }
 
+  function resetToDay() {
+    settleActiveVisualTween();
+    targetVisualMode = "day";
+    nightRotationLocked = false;
+    applyVisualState(0, dayRotation ?? earthGroup.rotation.y);
+    dayRotation = null;
+    nightRotation = null;
+  }
+
   function skipTransition() {
     if (!activeVisualTween) {
       return;
@@ -414,8 +452,12 @@ export function createEarthScene(stage) {
     tween.resolve();
   }
 
-  function tweenCamera(target, duration) {
+  function tweenCamera(target, duration, targetRotationSpeed = rotationSpeed) {
     const from = camera.position.clone();
+    const fromRotationSpeed = rotationSpeed;
+    const fromDirection = from.clone().normalize();
+    const targetDirection = target.clone().normalize();
+    const turnQuaternion = new THREE.Quaternion().setFromUnitVectors(fromDirection, targetDirection);
 
     if (activeTween?.resolve) {
       activeTween.resolve();
@@ -424,6 +466,7 @@ export function createEarthScene(stage) {
     if (duration === 0) {
       camera.position.copy(target);
       camera.lookAt(LOOK_AT);
+      rotationSpeed = targetRotationSpeed;
       activeTween = null;
       return Promise.resolve();
     }
@@ -432,6 +475,12 @@ export function createEarthScene(stage) {
       activeTween = {
         from,
         target: target.clone(),
+        fromDirection,
+        turnQuaternion,
+        fromDistance: from.length(),
+        targetDistance: target.length(),
+        fromRotationSpeed,
+        targetRotationSpeed,
         startedAt: performance.now(),
         duration,
         resolve,
@@ -446,8 +495,22 @@ export function createEarthScene(stage) {
 
     const progress = Math.min((performance.now() - activeTween.startedAt) / activeTween.duration, 1);
     const eased = easeInOutCubic(progress);
-    camera.position.lerpVectors(activeTween.from, activeTween.target, eased);
+    const turn = new THREE.Quaternion().identity().slerp(activeTween.turnQuaternion, eased);
+    const distance = THREE.MathUtils.lerp(
+      activeTween.fromDistance,
+      activeTween.targetDistance,
+      eased,
+    );
+    camera.position
+      .copy(activeTween.fromDirection)
+      .applyQuaternion(turn)
+      .multiplyScalar(distance);
     camera.lookAt(LOOK_AT);
+    rotationSpeed = THREE.MathUtils.lerp(
+      activeTween.fromRotationSpeed,
+      activeTween.targetRotationSpeed,
+      eased,
+    );
 
     if (progress >= 1) {
       const { resolve } = activeTween;
@@ -491,6 +554,8 @@ export function createEarthScene(stage) {
         target,
         startedAt: performance.now(),
         duration,
+        fromRotationSpeed,
+        targetRotationSpeed,
         resolve,
       };
     });
@@ -562,13 +627,39 @@ export function createEarthScene(stage) {
     return THREE.MathUtils.lerp(DAY_VISUAL_STATE[property], NIGHT_VISUAL_STATE[property], factor);
   }
 
+  function updateSignalLiveliness(delta) {
+    const response = signalLivelinessTarget > signalLiveliness ? 7 : 4;
+    const blend = 1 - Math.exp(-Math.max(0, delta) * response);
+    signalLiveliness = THREE.MathUtils.lerp(
+      signalLiveliness,
+      signalLivelinessTarget,
+      blend,
+    );
+
+    renderer.toneMappingExposure = interpolateVisualValue("exposure", visualFactor)
+      + signalLiveliness * 0.045;
+    fill.intensity = interpolateVisualValue("fill", visualFactor)
+      + signalLiveliness * 0.14;
+    oceanFill.intensity = interpolateVisualValue("oceanFill", visualFactor)
+      + signalLiveliness * 0.42;
+    globeMaterial.emissiveIntensity = interpolateVisualValue("emissive", visualFactor)
+      + signalLiveliness * 0.072;
+    atmosphere.material.opacity = THREE.MathUtils.lerp(
+      DAY_ATMOSPHERE_OPACITY,
+      NIGHT_ATMOSPHERE_OPACITY,
+      visualFactor,
+    ) + signalLiveliness * 0.045;
+  }
+
   return {
     start,
     stop,
     focus,
     home,
+    setConnectionLiveliness,
     toNight,
     toDay,
+    resetToDay,
     skipTransition,
     applyInitialFraming,
     applyViewPreset,
@@ -785,7 +876,7 @@ function createUplinkNetwork() {
   return uplinks;
 }
 
-function createHandshakeVisual(earthGroup, orbitalNetwork) {
+function createHandshakeVisual(earthGroup, orbitalNetwork, { onActiveChange } = {}) {
   const satellite = orbitalNetwork.userData.handshakeSatellite;
   const baseScale = satellite.scale.clone();
   const materialStates = satellite.children.map((child) => {
@@ -820,6 +911,7 @@ function createHandshakeVisual(earthGroup, orbitalNetwork) {
     const point = latLngToCartesian(location.latitude, location.longitude, ANCHOR_PROJECTION_RADIUS);
     cityPoint.set(point.x, point.y, point.z);
     active = true;
+    onActiveChange?.(true);
     acquiredAt = performance.now();
     line.visible = false;
     materialStates.forEach(({ material }, index) => {
@@ -844,7 +936,7 @@ function createHandshakeVisual(earthGroup, orbitalNetwork) {
 
   function showDownlink() {
     line.visible = true;
-    line.material.opacity = 0.48;
+    line.material.opacity = 0.24;
   }
 
   function hideDownlink() {
@@ -854,6 +946,7 @@ function createHandshakeVisual(earthGroup, orbitalNetwork) {
 
   function finish() {
     active = false;
+    onActiveChange?.(false);
     hideDownlink();
     satellite.scale.copy(baseScale);
     materialStates.forEach(({ material, color, opacity }) => {

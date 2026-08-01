@@ -42,10 +42,48 @@ export function renderEarthConnectionSequence(root, {
   const interval = getConnectionSignalInterval(reducedMotion);
   const pendingWaits = new Map();
   let active = true;
+  let anchorElement = null;
+  let unsubscribeAnchor = null;
+
+  const hideAnchor = () => {
+    unsubscribeAnchor?.();
+    unsubscribeAnchor = null;
+    anchorElement?.remove?.();
+    anchorElement = null;
+  };
 
   const show = (signal) => {
     if (!active) return false;
+    hideAnchor();
     root.innerHTML = getConnectionSignalMarkup(signal);
+    return true;
+  };
+
+  const showAnchor = ({ subscribe } = {}) => {
+    hideAnchor();
+    const documentRef = root.ownerDocument || globalThis.document;
+    if (!active || !documentRef?.createElement || typeof subscribe !== "function") {
+      return false;
+    }
+
+    anchorElement = documentRef.createElement("div");
+    anchorElement.className = "connection-player-lock";
+    anchorElement.setAttribute("aria-hidden", "true");
+    anchorElement.innerHTML = `
+      <i class="connection-lock-corner connection-lock-nw"></i>
+      <i class="connection-lock-corner connection-lock-ne"></i>
+      <i class="connection-lock-corner connection-lock-se"></i>
+      <i class="connection-lock-corner connection-lock-sw"></i>
+      <i class="connection-lock-pulse"></i>
+      <i class="connection-lock-core"></i>
+    `;
+    root.append?.(anchorElement);
+    unsubscribeAnchor = subscribe((projection) => {
+      if (!anchorElement) return;
+      anchorElement.style.left = `${projection.x}px`;
+      anchorElement.style.top = `${projection.y}px`;
+      anchorElement.classList.toggle("is-visible", Boolean(projection.visible));
+    });
     return true;
   };
 
@@ -79,6 +117,7 @@ export function renderEarthConnectionSequence(root, {
   const deactivate = () => {
     if (!active) return false;
     active = false;
+    hideAnchor();
     settlePendingWaits();
     root.removeEventListener?.("click", handleClick);
     root.classList?.remove("is-connection");
@@ -91,6 +130,8 @@ export function renderEarthConnectionSequence(root, {
 
   return {
     show,
+    showAnchor,
+    hideAnchor,
     wait,
     finish: deactivate,
     cleanup: deactivate,

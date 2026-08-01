@@ -92,6 +92,15 @@ test("v0.4 home signal and first archive remain outside the legacy panel", async
   assert.match(source, /state\.mode = "first-signal-archive"/);
 });
 
+test("Escape from the unframed archive signal review returns through the day transition", async () => {
+  const source = await readFile(controllerUrl, "utf8");
+  const keydown = source.slice(source.indexOf('window.addEventListener("keydown"'));
+
+  assert.match(keydown, /state\.mode === "archive-signal-review"/);
+  assert.match(keydown, /returnToDay\(\)/);
+  assert.match(source, /scene\.resetToDay\(\);\s*scene\.home\(\);/);
+});
+
 test("reduced-motion entry keeps a visual settle before mounting connection signals", async () => {
   const source = await readFile(controllerUrl, "utf8");
   const enter = getFunctionBlock(source, "enter", "showConnection");
@@ -99,6 +108,18 @@ test("reduced-motion entry keeps a visual settle before mounting connection sign
   assert.match(source, /REDUCED_MOTION_ENTRY_SETTLE_MS = 700/);
   assert.match(enter, /Promise\.all\(/);
   assert.match(enter, /delayWithSignal\(reducedMotion \? REDUCED_MOTION_ENTRY_SETTLE_MS : 0\)/);
+});
+
+test("returning players can restore an anchor from a compatible onboarding draft", async () => {
+  const source = await readFile(controllerUrl, "utf8");
+  const connection = getFunctionBlock(source, "showConnection", "showOnboarding");
+
+  assert.match(
+    connection,
+    /state\.save\.profile\?\.location\s*\|\|\s*state\.save\.onboarding\?\.draft\?\.location/,
+  );
+  assert.match(connection, /presenter\.showAnchor/);
+  assert.match(connection, /scene\.subscribeLocationProjection/);
 });
 
 function getFunctionBlock(source, startName, endName) {
