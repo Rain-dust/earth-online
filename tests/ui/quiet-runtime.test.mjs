@@ -51,6 +51,19 @@ test("record feedback distinguishes a new daily record from an update", () => {
   assert.match(updated, /今日玩家记录已更新。/);
 });
 
+test("an empty quest channel offers an inline path back into the existing quest system", () => {
+  const markup = getQuietRuntimeMarkup({
+    activeChannel: "quest",
+    quest: null,
+  });
+
+  assert.match(markup, /data-quiet-form="quest-create"/);
+  assert.match(markup, /name="title"/);
+  assert.match(markup, /name="firstAction"/);
+  assert.match(markup, /建立主线/);
+  assert.doesNotMatch(markup, /quest-dialog|<section\b|<article\b/);
+});
+
 test("accepted daily mission expands from the player signal without becoming a fourth channel", () => {
   const markup = getQuietRuntimeMarkup({
     playerName: "远行者",

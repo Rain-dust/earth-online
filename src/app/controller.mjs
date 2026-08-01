@@ -568,6 +568,16 @@ export function createApp() {
         };
       },
       onQuestAction(action, text) {
+        if (action === "create") {
+          const today = getLocalDateKey();
+          const created = createMainQuest(state.save, text);
+          state.save = saveLocalSave(refreshDailyMainAction(ensureDailyRun(created, today), today));
+          return {
+            message: "主线已开始运行。",
+            view: buildQuietRuntimeView({ activeChannel: "quest" }),
+          };
+        }
+
         if (action === "record_progress") {
           const today = getLocalDateKey();
           const prepared = refreshDailyMainAction(ensureDailyRun(state.save, today), today);

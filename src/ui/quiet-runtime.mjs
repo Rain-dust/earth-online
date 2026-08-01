@@ -194,7 +194,24 @@ export function renderQuietRuntime(root, {
     if (!form) return;
 
     event.preventDefault?.();
-    const text = String(new FormData(form).get("text") || "").trim();
+    const data = new FormData(form);
+
+    if (form.dataset.quietForm === "quest-create") {
+      const title = String(data.get("title") || "").trim();
+      const firstAction = String(data.get("firstAction") || "").trim();
+      if (!title || !firstAction) return;
+
+      const result = onQuestAction("create", { title, firstAction });
+      state = {
+        ...state,
+        ...(result?.view || {}),
+        questFeedback: result?.message || "主线已开始运行。",
+      };
+      render();
+      return;
+    }
+
+    const text = String(data.get("text") || "").trim();
     if (!text) return;
 
     if (form.dataset.quietForm === "record") {
@@ -314,6 +331,14 @@ function renderQuestDisclosure(view) {
       <div class="quiet-disclosure quiet-quest" data-quiet-disclosure="quest">
         <button type="button" class="quiet-close" data-quiet-action="close" aria-label="关闭当前主线">×</button>
         <p>当前没有正在运行的主线。</p>
+        <form data-quiet-form="quest-create">
+          <label for="quiet-quest-title">现在最想推进什么？</label>
+          <input id="quiet-quest-title" name="title" maxlength="80" required />
+          <label for="quiet-quest-first-action">下一步是什么？</label>
+          <input id="quiet-quest-first-action" name="firstAction" maxlength="80" required />
+          <button type="submit">建立主线</button>
+        </form>
+        ${view.questFeedback ? `<p role="status">${escapeHtml(view.questFeedback)}</p>` : ""}
       </div>
     `;
   }

@@ -12,9 +12,9 @@ import {
   SIGNAL_RUNTIME_MODES,
 } from "../../src/app/experience-flags.mjs";
 
-test("experience mode defaults to the legacy path", () => {
-  assert.equal(resolveExperienceMode(""), "legacy");
-  assert.equal(resolveExperienceMode("?other=value"), "legacy");
+test("experience mode defaults to the v0.4 public path", () => {
+  assert.equal(resolveExperienceMode(""), "v04");
+  assert.equal(resolveExperienceMode("?other=value"), "v04");
 });
 
 test("experience mode accepts the explicit v0.4 preview", () => {

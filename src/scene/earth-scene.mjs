@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import ThreeGlobe from "https://esm.sh/three-globe";
+import ThreeGlobe from "https://esm.sh/three-globe@2.45.2?external=three";
 import {
   isProjectedPointVisible,
   isWorldPointVisible,

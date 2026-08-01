@@ -26,7 +26,7 @@ export const RUNTIME_ROUTES = Object.freeze({
   LEGACY_PANEL: "legacy_panel",
 });
 
-export function resolveExperienceMode(search = "", fallback = EXPERIENCE_MODES.LEGACY) {
+export function resolveExperienceMode(search = "", fallback = EXPERIENCE_MODES.V04) {
   const requested = new URLSearchParams(String(search || "")).get("experience");
 
   return Object.values(EXPERIENCE_MODES).includes(requested)
