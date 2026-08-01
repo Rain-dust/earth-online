@@ -28,19 +28,19 @@ const DAY_ATMOSPHERE_OPACITY = 0.29;
 const NIGHT_ATMOSPHERE_OPACITY = 0.18;
 
 const DAY_VISUAL_STATE = Object.freeze({
-  exposure: 1.12,
-  sun: 2.35,
-  fill: 1,
-  oceanFill: 0.72,
-  emissive: 0.17,
+  exposure: 1.28,
+  sun: 2.45,
+  fill: 1.5,
+  oceanFill: 1.65,
+  emissive: 0.32,
 });
 
 const NIGHT_VISUAL_STATE = Object.freeze({
-  exposure: 0.76,
-  sun: 0.58,
-  fill: 0.92,
-  oceanFill: 0.22,
-  emissive: 0.08,
+  exposure: 0.9,
+  sun: 0.68,
+  fill: 1.12,
+  oceanFill: 0.48,
+  emissive: 0.17,
 });
 
 const ORBIT_PLANES = Object.freeze([
@@ -133,8 +133,8 @@ export function createEarthScene(stage) {
     );
 
   const globeMaterial = globe.globeMaterial();
-  globeMaterial.color = new THREE.Color(0xdce5e7);
-  globeMaterial.emissive = new THREE.Color(0x07131c);
+  globeMaterial.color = new THREE.Color(0xf0f5f6);
+  globeMaterial.emissive = new THREE.Color(0x102b40);
   globeMaterial.emissiveIntensity = DAY_VISUAL_STATE.emissive;
   globeMaterial.shininess = 0.7;
   earthGroup.add(globe);
@@ -685,7 +685,7 @@ function addLights(scene) {
   oceanFill.position.set(18, 46, 260);
   scene.add(oceanFill);
 
-  scene.add(new THREE.AmbientLight(0x9aa7ad, 0.54));
+  scene.add(new THREE.AmbientLight(0xafbec5, 0.9));
 
   return { sun, fill, oceanFill };
 }
