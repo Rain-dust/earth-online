@@ -18,14 +18,14 @@ const NOW = "2026-07-21T08:00:00.000Z";
 test("save format and storage key remain at v1", () => {
   assert.equal(SAVE_FORMAT, "earth-online-save-v1");
   assert.equal(STORAGE_KEY, "earth-online-save-v1");
-  assert.equal(SCHEMA_VERSION, 3);
+  assert.equal(SCHEMA_VERSION, 4);
 });
 
 test("createEmptySave returns versioned readable save shell", () => {
   const save = createEmptySave("2026-06-21T20:24:00+08:00");
 
   assert.equal(save.format, SAVE_FORMAT);
-  assert.equal(save.schemaVersion, 3);
+  assert.equal(save.schemaVersion, 4);
   assert.equal(save.exportedAt, "2026-06-21T20:24:00+08:00");
   assert.equal(save.systemNote, "旧存档仍在运行");
   assert.deepEqual(save.profile, null);
@@ -58,6 +58,7 @@ test("createEmptySave returns versioned readable save shell", () => {
     scanStatus: "pending",
     candidateIds: [],
     dismissedIds: [],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 0,
@@ -76,7 +77,7 @@ test("importSave migrates a v0.2 main quest without losing legacy data", () => {
 
   const imported = importSave(JSON.stringify(legacy));
 
-  assert.equal(imported.schemaVersion, 3);
+  assert.equal(imported.schemaVersion, 4);
   assert.equal(imported.mainQuest.id, "legacy-main-quest");
   assert.equal(imported.mainQuest.status, "active");
   assert.equal(imported.mainQuest.currentAction.text, "整理 v0.3 规格");
@@ -91,7 +92,7 @@ test("importSave gives an empty v2 save a resumable v0.4 shell", () => {
 
   const imported = importSave(JSON.stringify(legacy));
 
-  assert.equal(imported.schemaVersion, 3);
+  assert.equal(imported.schemaVersion, 4);
   assert.equal(imported.onboarding.status, "not_started");
   assert.equal(imported.onboarding.lastStep, "player_name");
   assert.deepEqual(imported.connection, {
@@ -232,6 +233,7 @@ test("exportSave gives saves without an achievement archive the default archive"
     scanStatus: "pending",
     candidateIds: [],
     dismissedIds: [],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 0,
@@ -260,6 +262,7 @@ test("importSave gives old saves a default achievement archive", () => {
     scanStatus: "pending",
     candidateIds: [],
     dismissedIds: [],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 0,
@@ -305,6 +308,7 @@ test("archive state and unknown legacy achievements survive an export-import rou
     scanStatus: "review",
     candidateIds: ["candidate-one", "candidate-two"],
     dismissedIds: ["dismissed-one"],
+    rejectedIds: [],
     firstNightEnteredAt: "2026-07-10T16:00:00.000Z",
     lastSwitchDate: "2026-07-11",
     switchCount: 3,

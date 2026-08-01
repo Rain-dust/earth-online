@@ -65,6 +65,23 @@ test("night archive carries an explicit day return mode", async () => {
   assert.match(source, /openArchive\(\{\s*returnMode:/);
 });
 
+test("v0.4 night archive continues from the first signal into the unframed signal review", async () => {
+  const source = await readFile(controllerUrl, "utf8");
+  const router = getFunctionBlock(source, "showArchiveOrReview", "showFirstSignalArchive");
+  const firstSignal = getFunctionBlock(source, "showFirstSignalArchive", "showArchive");
+
+  assert.match(router, /getFirstSignalArchiveView\(state\.save\)/);
+  assert.match(router, /if \(!firstSignal\.recovered\)/);
+  assert.match(router, /archive\.scanStatus !== "complete"/);
+  assert.match(router, /showOldSaveSignalReview\(\)/);
+  assert.match(
+    router,
+    /EXPERIENCE_MODES\.V04[\s\S]*archive\.scanStatus !== "complete"[\s\S]*showOldSaveSignalReview\(\)[\s\S]*return;/,
+  );
+  assert.match(firstSignal, /onContinue: showArchiveOrReview/);
+  assert.match(firstSignal, /onReturn: returnToDay/);
+});
+
 test("v0.4 home signal and first archive remain outside the legacy panel", async () => {
   const source = await readFile(controllerUrl, "utf8");
 
@@ -73,6 +90,15 @@ test("v0.4 home signal and first archive remain outside the legacy panel", async
   assert.match(source, /function showFirstSignalArchive\(\)/);
   assert.match(source, /renderFirstSignalArchive/);
   assert.match(source, /state\.mode = "first-signal-archive"/);
+});
+
+test("reduced-motion entry keeps a visual settle before mounting connection signals", async () => {
+  const source = await readFile(controllerUrl, "utf8");
+  const enter = getFunctionBlock(source, "enter", "showConnection");
+
+  assert.match(source, /REDUCED_MOTION_ENTRY_SETTLE_MS = 700/);
+  assert.match(enter, /Promise\.all\(/);
+  assert.match(enter, /delayWithSignal\(reducedMotion \? REDUCED_MOTION_ENTRY_SETTLE_MS : 0\)/);
 });
 
 function getFunctionBlock(source, startName, endName) {

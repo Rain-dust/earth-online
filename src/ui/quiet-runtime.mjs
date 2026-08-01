@@ -1,3 +1,8 @@
+import {
+  getPlayerTerminalMarkup,
+  getTaskSyncTerminalMarkup,
+} from "./player-terminal.mjs";
+
 const CHANNELS = Object.freeze([
   { id: "record", label: "记录变化" },
   { id: "quest", label: "当前主线" },
@@ -5,19 +10,53 @@ const CHANNELS = Object.freeze([
 ]);
 
 export function getQuietRuntimeMarkup(view = {}) {
-  const activeChannel = CHANNELS.some((channel) => channel.id === view.activeChannel)
+  const activeChannel = (
+    CHANNELS.some((channel) => channel.id === view.activeChannel)
+    || view.activeChannel === "mission"
+  )
     ? view.activeChannel
     : "";
 
   return `
     <div class="quiet-runtime" data-active-channel="${escapeHtml(activeChannel)}">
-      <p class="quiet-presence">${escapeHtml(view.playerName || "未命名玩家")} 在线 · 地球运行中</p>
+      ${view.enhanced === false ? `
+        <p class="quiet-presence">${escapeHtml(view.playerName || "未命名玩家")} 在线 · 地球运行中</p>
+      ` : `
+        <div class="quiet-player-signal">
+          <button type="button" class="quiet-player-name" data-player-terminal-action="open">
+            <i aria-hidden="true"></i>${escapeHtml(view.playerName || "未命名玩家")}
+          </button>
+          <span>在线 · 地球运行中</span>
+          ${renderMissionSignal(view)}
+        </div>
+      `}
       <div class="quiet-channels" aria-label="主动通道">
         ${CHANNELS.map((channel) => renderChannelTrigger(channel, activeChannel)).join("")}
       </div>
       ${renderDisclosure({ ...view, activeChannel })}
+      ${view.terminalPhase ? getPlayerTerminalMarkup(view.playerRuntime, {
+        phase: view.terminalPhase,
+        feedback: view.terminalFeedback,
+      }) : ""}
+      ${view.taskFeedback && !view.terminalPhase
+        ? getTaskSyncTerminalMarkup(view.taskFeedback)
+        : ""}
     </div>
   `;
+}
+
+export function patchPlayerTerminalStatus(root, status) {
+  const terminal = root.querySelector?.("[data-player-terminal]");
+  if (!terminal) return false;
+
+  const buttons = terminal.querySelectorAll?.("[data-player-status]") || [];
+  let matched = false;
+  for (const button of buttons) {
+    const selected = button.dataset?.playerStatus === status;
+    button.setAttribute?.("aria-pressed", String(selected));
+    matched ||= selected;
+  }
+  return matched;
 }
 
 export function renderQuietRuntime(root, {
@@ -25,9 +64,22 @@ export function renderQuietRuntime(root, {
   onRecordChange = () => null,
   onQuestAction = () => null,
   onOpenArchive = () => {},
+  onStatusChange = () => null,
+  onDailyMissionAction = () => null,
+  onTaskFeedbackComplete = () => {},
+  subscribe = null,
 } = {}) {
   let active = true;
   let state = { ...view };
+  const timers = new Set();
+  const unsubscribe = typeof subscribe === "function"
+    ? subscribe((projection) => {
+      if (!active || !projection?.visible || !root.style?.setProperty) return;
+      root.style.setProperty("--player-signal-x", `${projection.x}px`);
+      root.style.setProperty("--player-signal-y", `${projection.y}px`);
+      root.classList?.add("has-player-signal-position");
+    })
+    : null;
 
   const render = () => {
     if (active) root.innerHTML = getQuietRuntimeMarkup(state);
@@ -48,6 +100,71 @@ export function renderQuietRuntime(root, {
         questProgressOpen: false,
       };
       render();
+      return;
+    }
+
+    const terminalAction = event.target?.closest?.("[data-player-terminal-action]")?.dataset.playerTerminalAction;
+    if (terminalAction === "open") {
+      state = { ...state, terminalPhase: "command", activeChannel: "" };
+      render();
+      const delay = state.terminalVisited ? 160 : 520;
+      const timer = globalThis.setTimeout?.(() => {
+        timers.delete(timer);
+        if (!active) return;
+        state = { ...state, terminalPhase: "terminal", terminalVisited: true };
+        render();
+        globalThis.lucide?.createIcons?.({ root });
+      }, delay);
+      timers.add(timer);
+      return;
+    }
+    if (terminalAction === "close") {
+      state = { ...state, terminalPhase: "", terminalFeedback: null };
+      render();
+      return;
+    }
+
+    const status = event.target?.closest?.("[data-player-status]")?.dataset.playerStatus;
+    if (status) {
+      const result = onStatusChange(status);
+      state = { ...state, ...(result?.view || {}) };
+      if (!patchPlayerTerminalStatus(root, state.playerRuntime?.currentStatus || status)) {
+        render();
+        globalThis.lucide?.createIcons?.({ root });
+      }
+      return;
+    }
+
+    if (event.target?.closest?.("[data-daily-mission-signal]")) {
+      state = {
+        ...state,
+        activeChannel: state.activeChannel === "mission" ? "" : "mission",
+      };
+      render();
+      return;
+    }
+
+    const missionAction = event.target?.closest?.("[data-daily-mission-action]")?.dataset.dailyMissionAction;
+    if (missionAction) {
+      const result = onDailyMissionAction(missionAction);
+      state = {
+        ...state,
+        ...(result?.view || {}),
+        activeChannel: "",
+        taskFeedback: state.terminalPhase ? null : result?.feedback || null,
+        terminalFeedback: state.terminalPhase ? result?.feedback || null : null,
+      };
+      render();
+      if (result?.feedback) {
+        const timer = globalThis.setTimeout?.(() => {
+          timers.delete(timer);
+          if (!active) return;
+          state = { ...state, taskFeedback: null, terminalFeedback: null };
+          render();
+          onTaskFeedbackComplete(result);
+        }, 3600);
+        timers.add(timer);
+      }
       return;
     }
 
@@ -113,6 +230,10 @@ export function renderQuietRuntime(root, {
   return function cleanup() {
     if (!active) return;
     active = false;
+    timers.forEach((timer) => globalThis.clearTimeout?.(timer));
+    timers.clear();
+    unsubscribe?.();
+    root.classList?.remove("has-player-signal-position");
     root.removeEventListener?.("click", handleClick);
     root.removeEventListener?.("submit", handleSubmit);
     root.classList?.remove("is-quiet");
@@ -151,7 +272,40 @@ function renderDisclosure(view) {
     return renderQuestDisclosure(view);
   }
 
+  if (view.activeChannel === "mission") {
+    return renderMissionDisclosure(view);
+  }
+
   return "";
+}
+
+function renderMissionSignal(view) {
+  const mission = view.dailyMission;
+  if (!mission || mission.completedAt || mission.skippedAt || !mission.acceptedAt) return "";
+
+  return `
+    <button type="button" class="quiet-daily-signal" data-daily-mission-signal aria-expanded="${String(view.activeChannel === "mission")}">
+      <i aria-hidden="true"></i>今日任务运行中
+    </button>
+  `;
+}
+
+function renderMissionDisclosure(view) {
+  const mission = view.dailyMission;
+  if (!mission) return "";
+
+  return `
+    <div class="quiet-disclosure quiet-mission" data-quiet-disclosure="mission">
+      <button type="button" class="quiet-close" data-quiet-action="close" aria-label="关闭每日任务">×</button>
+      <p class="quiet-mission-kicker">【每日任务】</p>
+      <h2>${escapeHtml(mission.content || mission.title)}</h2>
+      <p>任务完成后将同步本次属性变化与临时状态。</p>
+      <div class="quiet-quest-actions">
+        <button type="button" data-daily-mission-action="complete">完成任务</button>
+        <button type="button" data-quiet-action="close">暂不处理</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderQuestDisclosure(view) {

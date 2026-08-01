@@ -13,6 +13,7 @@ import {
   dismissOldSaveAchievement,
   getAchievementInstanceId,
   normalizeAchievementArchive,
+  rejectOldSaveAchievement,
   restoreDismissedOldSaveAchievement,
   revokeOldSaveAchievement,
   setAchievementPresentation,
@@ -22,17 +23,22 @@ import { confirmFirstSignalRecord } from "../core/first-signal-archive.mjs";
 import { getFirstSignalArchiveView } from "../core/first-signal-archive.mjs";
 import { buildFirstDaySequenceView } from "../core/first-day-sequence.mjs";
 import {
+  acceptDailyMission,
+  completeDailyMission,
   deleteFreeRecord,
   ensureDailyRun,
+  markDailyMissionPresented,
   recordAdditionalMainProgress,
   refreshDailyMainAction,
   replaceDailyMaintenance,
   saveFreeRecord,
   setDailyStatus,
+  skipDailyMission,
   syncMainAction,
   syncMaintenance,
 } from "../core/daily-run.mjs";
 import { getLocalDateKey } from "../core/local-date.mjs";
+import { getPlayerRuntimeView } from "../core/player-runtime.mjs";
 import {
   formatTimeDistance,
   resolveCurrentMainQuestLastActivityAt,
@@ -68,6 +74,7 @@ import {
 } from "../ui/achievement-toast.mjs";
 import { renderNightArchive } from "../ui/night-archive.mjs";
 import { renderOldSaveReview, renderRecoveryCeremony } from "../ui/old-save-review.mjs";
+import { renderOldSaveSignalReview } from "../ui/old-save-signal-review.mjs";
 import { renderSystemPanel } from "../ui/system-panel.mjs";
 import { getDom, setSystemVisible } from "./dom.mjs";
 import {
@@ -75,19 +82,24 @@ import {
   EXPERIENCE_MODES,
   FIRST_DAY_SEQUENCE_MODES,
   RUNTIME_ROUTES,
+  SIGNAL_RUNTIME_MODES,
   resolveEntryRoute,
   resolveExperienceMode,
   resolveFirstDaySequenceMode,
   resolvePostConnectionRoute,
+  resolveSignalRuntimeMode,
 } from "./experience-flags.mjs";
 import { applyPanelDayUpdate } from "./panel-day.mjs";
 import { captureConnectionSnapshot, markBroadcastShown } from "./runtime-session.mjs";
+
+const REDUCED_MOTION_ENTRY_SETTLE_MS = 700;
 
 export function createApp() {
   const dom = getDom();
   const locationSearch = globalThis.location?.search || "";
   const experienceMode = resolveExperienceMode(locationSearch);
   const firstDaySequenceMode = resolveFirstDaySequenceMode(locationSearch);
+  const signalRuntimeMode = resolveSignalRuntimeMode(locationSearch);
   const save = experienceMode === EXPERIENCE_MODES.V04
     ? createEmptySave()
     : loadLocalSave();
@@ -99,9 +111,11 @@ export function createApp() {
     scene,
     experienceMode,
     firstDaySequenceMode,
+    signalRuntimeMode,
     archiveFilter: "all",
     archiveSelectedId: null,
     archiveReturnMode: null,
+    archiveReviewSessionIds: [],
     connectionSnapshot: { previousLastActiveAt: null },
     transitionId: 0,
   };
@@ -141,7 +155,11 @@ export function createApp() {
     dom.body.classList.add("is-zooming");
 
     try {
-      await scene.focus();
+      const reducedMotion = prefersReducedMotion();
+      await Promise.all([
+        scene.focus({ reducedMotion }),
+        delayWithSignal(reducedMotion ? REDUCED_MOTION_ENTRY_SETTLE_MS : 0),
+      ]);
       if (state.mode !== "focusing" || attemptId !== focusAttemptId) {
         return;
       }
@@ -365,9 +383,17 @@ export function createApp() {
     scene.setPlayerLocation(state.save.profile?.location);
 
     const shownAt = new Date().toISOString();
-    const broadcast = resolveSystemBroadcast(state.save, {
+    const today = getLocalDateKey(new Date(shownAt));
+    const useCurrentSignalRuntime = state.signalRuntimeMode === SIGNAL_RUNTIME_MODES.CURRENT;
+    const preparedSave = useCurrentSignalRuntime
+      ? ensureDailyRun(state.save, today)
+      : state.save;
+    state.save = preparedSave;
+    const broadcast = resolveSystemBroadcast(preparedSave, {
       now: shownAt,
       previousLastActiveAt,
+      includeDailyMission: useCurrentSignalRuntime,
+      localDate: today,
     });
 
     if (
@@ -395,6 +421,21 @@ export function createApp() {
         broadcast,
         onAction(action) {
           if (state.mode !== "broadcast") return;
+          if (action === "accept_daily_mission") {
+            state.save = saveLocalSave(acceptDailyMission(state.save, today));
+            showQuiet();
+            return;
+          }
+          if (action === "replace_daily_mission") {
+            state.save = replaceDailyMaintenance(state.save, today);
+            showBroadcast({ previousLastActiveAt });
+            return;
+          }
+          if (action === "skip_daily_mission") {
+            state.save = saveLocalSave(skipDailyMission(state.save, today));
+            showQuiet();
+            return;
+          }
           if (action === "record_progress") {
             showQuiet({ initialChannel: "quest", questProgressOpen: true });
             return;
@@ -406,7 +447,10 @@ export function createApp() {
           showQuiet();
         },
       });
-      state.save = saveLocalSave(markBroadcastShown(state.save, shownAt));
+      const presentedSave = broadcast.type === "daily_mission"
+        ? markDailyMissionPresented(state.save, today, shownAt)
+        : state.save;
+      state.save = saveLocalSave(markBroadcastShown(presentedSave, shownAt));
       runtimeAudio.play("confirmed");
     } catch (error) {
       showRuntimeError(error, {
@@ -460,10 +504,14 @@ export function createApp() {
           runtimeAudio.play("achievement");
         },
         onDailySignal() {
+          state.save = saveLocalSave(markDailyMissionPresented(state.save, today));
           runtimeAudio.play("daily");
         },
         onContinue() {
-          if (state.mode === "first_day") showQuiet();
+          if (state.mode === "first_day") {
+            state.save = saveLocalSave(acceptDailyMission(state.save, today));
+            showQuiet();
+          }
         },
         onError(error) {
           if (state.mode !== "first_day") return;
@@ -551,6 +599,45 @@ export function createApp() {
       onOpenArchive() {
         openArchive({ returnMode: "quiet" });
       },
+      onStatusChange(status) {
+        const today = getLocalDateKey();
+        const prepared = ensureDailyRun(state.save, today);
+        state.save = saveLocalSave(setDailyStatus(prepared, today, status));
+        return {
+          view: buildQuietRuntimeView(),
+        };
+      },
+      onDailyMissionAction(action) {
+        if (action !== "complete") return null;
+        const today = getLocalDateKey();
+        const previousAchievements = state.save?.achievements;
+        const completion = completeDailyMission(state.save, today);
+        state.save = saveLocalSave(completion.save);
+        runtimeAudio.play("taskSync");
+        const achievementIds = getNewAchievementIds(
+          previousAchievements,
+          state.save?.achievements,
+        );
+        return {
+          feedback: completion.result ? {
+            ...completion.result,
+            hasAchievement: achievementIds.length > 0,
+          } : null,
+          achievementIds,
+          view: buildQuietRuntimeView(),
+        };
+      },
+      onTaskFeedbackComplete(result) {
+        for (const id of result?.achievementIds || []) {
+          achievementToastQueue.enqueue(id).catch(() => {});
+        }
+      },
+      subscribe: state.save?.profile?.location
+        ? (callback) => scene.subscribeLocationProjection(
+          state.save.profile.location,
+          callback,
+        )
+        : null,
     });
   }
 
@@ -562,11 +649,19 @@ export function createApp() {
     const run = state.save?.dailyRuns?.find((item) => item?.date === today);
     const quest = state.save?.mainQuest?.status === "active" ? state.save.mainQuest : null;
     const lastProgressAt = resolveCurrentMainQuestLastActivityAt(state.save);
+    const enhanced = state.signalRuntimeMode === SIGNAL_RUNTIME_MODES.CURRENT;
 
     return {
       playerName: state.save?.profile?.nickname || "未命名玩家",
+      enhanced,
       activeChannel,
       questProgressOpen,
+      playerRuntime: {
+        playerName: state.save?.profile?.nickname || "未命名玩家",
+        currentStatus: state.save?.currentStatus || "stable_operation",
+        ...getPlayerRuntimeView(state.save?.playerRuntime),
+      },
+      dailyMission: enhanced ? run?.maintenance || null : null,
       record: {
         exists: Boolean(run?.freeRecord),
         text: run?.freeRecord?.text || "",
@@ -699,6 +794,7 @@ export function createApp() {
     const duration = getNightTransitionDuration(archive, dateKey, reducedMotion);
 
     state.archiveReturnMode = requestedReturnMode;
+    state.archiveReviewSessionIds = [];
     cleanupActiveSequence();
     state.mode = "transitioning-night";
     dom.systemRoot.classList.add("is-transitioning-night");
@@ -724,7 +820,13 @@ export function createApp() {
   }
 
   async function returnToDay() {
-    if (!["archive", "archive-review", "archive-ceremony", "first-signal-archive"].includes(state.mode)) return;
+    if (![
+      "archive",
+      "archive-review",
+      "archive-signal-review",
+      "archive-ceremony",
+      "first-signal-archive",
+    ].includes(state.mode)) return;
 
     const transitionId = ++state.transitionId;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -757,7 +859,15 @@ export function createApp() {
 
   function showArchiveOrReview() {
     if (state.experienceMode === EXPERIENCE_MODES.V04 && state.archiveReturnMode === "quiet") {
-      showFirstSignalArchive();
+      const firstSignal = getFirstSignalArchiveView(state.save);
+      const archive = normalizeAchievementArchive(state.save?.achievementArchive);
+      if (!firstSignal.recovered) {
+        showFirstSignalArchive();
+      } else if (archive.scanStatus !== "complete") {
+        showOldSaveSignalReview();
+      } else {
+        showArchive();
+      }
       return;
     }
 
@@ -784,6 +894,7 @@ export function createApp() {
         state.save = saveLocalSave(confirmFirstSignalRecord(state.save));
         runtimeAudio.play("confirmed");
       },
+      onContinue: showArchiveOrReview,
       onReturn: returnToDay,
     });
     activeSequenceCleanup = presenter.destroy;
@@ -810,9 +921,54 @@ export function createApp() {
         state.save = saveLocalSave(setAchievementPresentation(state.save, id, patch));
         showArchive();
       },
-      onOpenReview: showOldSaveReview,
+      onOpenReview() {
+        if (state.experienceMode === EXPERIENCE_MODES.V04 && state.archiveReturnMode === "quiet") {
+          state.archiveReviewSessionIds = [];
+          showOldSaveSignalReview();
+        } else {
+          showOldSaveReview();
+        }
+      },
       onReturnDay: handleDayNightControl,
     });
+  }
+
+  function showOldSaveSignalReview() {
+    cleanupActiveSequence();
+    state.mode = "archive-signal-review";
+    dom.systemRoot.classList.remove("is-transitioning-night", "is-transitioning-day");
+    dom.systemRoot.classList.add("is-night");
+    setSystemVisible(dom.systemRoot, true);
+
+    const presenter = renderOldSaveSignalReview(dom.systemRoot, {
+      save: state.save,
+      seenIds: state.archiveReviewSessionIds,
+      reducedMotion: prefersReducedMotion(),
+      onConfirm(id) {
+        state.archiveReviewSessionIds = [...new Set([...state.archiveReviewSessionIds, id])];
+        state.save = saveLocalSave(confirmOldSaveAchievement(state.save, id));
+        achievementToastQueue.enqueue(id).catch(() => {});
+        showOldSaveSignalReview();
+      },
+      onReject(id) {
+        state.archiveReviewSessionIds = [...new Set([...state.archiveReviewSessionIds, id])];
+        state.save = saveLocalSave(rejectOldSaveAchievement(state.save, id));
+        showOldSaveSignalReview();
+      },
+      onDefer(id) {
+        state.archiveReviewSessionIds = [...new Set([...state.archiveReviewSessionIds, id])];
+        state.save = saveLocalSave(dismissOldSaveAchievement(state.save, id));
+        showOldSaveSignalReview();
+      },
+      onFinish(view) {
+        if (view.allResolved) {
+          state.save = saveLocalSave(completeOldSaveReview(state.save));
+        }
+        returnToDay();
+      },
+      onExit: returnToDay,
+    });
+    activeSequenceCleanup = presenter.destroy;
   }
 
   function showOldSaveReview() {

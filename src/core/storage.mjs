@@ -7,10 +7,14 @@ import {
   normalizeOnboarding,
 } from "./player-profile.mjs";
 import { normalizePlayerLocation } from "./player-location.mjs";
+import {
+  createInitialPlayerRuntime,
+  normalizePlayerRuntime,
+} from "./player-runtime.mjs";
 
 export const SAVE_FORMAT = "earth-online-save-v1";
 export const STORAGE_KEY = "earth-online-save-v1";
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function createEmptySave(exportedAt = new Date().toISOString()) {
   return {
@@ -28,6 +32,7 @@ export function createEmptySave(exportedAt = new Date().toISOString()) {
     level: { value: 1, exp: 0, nextLevelExp: 100 },
     currentStatus: null,
     statusHistory: [],
+    playerRuntime: createInitialPlayerRuntime(),
     dailyTasks: [],
     taskHistory: [],
     achievements: [],
@@ -179,6 +184,7 @@ function mergeWithDefaults(save, defaults) {
       hasProfile: Boolean(save.profile && typeof save.profile === "object"),
     }),
     connection: normalizeConnection(save.connection, defaults.connection),
+    playerRuntime: normalizePlayerRuntime(save.playerRuntime),
     level: { ...defaults.level, ...(save.level || {}) },
     settings: { ...defaults.settings, ...(save.settings || {}) },
     mainQuest: normalizeMainQuest(save.mainQuest, save.exportedAt || defaults.exportedAt),

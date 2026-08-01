@@ -39,21 +39,12 @@ export function getFirstDaySequenceTimeline(reducedMotion = false) {
 }
 
 function resolveFirstDayTask(save, run) {
-  if (nonempty(run?.mainAction?.text)) {
-    return {
-      id: run.mainAction.actionId || `${run.date}:main`,
-      type: "main",
-      title: run.mainAction.text.trim(),
-      source: `来自当前主线 · ${String(save?.mainQuest?.title || "未命名主线")}`,
-    };
-  }
-
   if (nonempty(run?.maintenance?.title)) {
     return {
       id: run.maintenance.itemId || `${run.date}:maintenance`,
       type: "maintenance",
       title: run.maintenance.title.trim(),
-      source: "根据当前玩家状态生成",
+      source: "地球 Online 每日任务",
     };
   }
 

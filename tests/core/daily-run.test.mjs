@@ -1,13 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  acceptDailyMission,
+  completeDailyMission,
   deleteFreeRecord,
   ensureDailyRun,
+  markDailyMissionPresented,
   recordAdditionalMainProgress,
   refreshDailyMainAction,
   replaceDailyMaintenance,
   saveFreeRecord,
   setDailyStatus,
+  skipDailyMission,
   syncMainAction,
   syncMaintenance,
 } from "../../src/core/daily-run.mjs";
@@ -159,6 +163,47 @@ test("refreshDailyMainAction does not carry progress into a different quest", ()
 
   assert.equal(switched.dailyRuns[0].mainAction.questId, "quest-2");
   assert.deepEqual(switched.dailyRuns[0].mainAction.additionalProgress, []);
+});
+
+test("v0.4 daily mission tracks presentation, acceptance and skip without EXP", () => {
+  const initial = ensureDailyRun(fixtureSaveWithMainQuest(), DATE);
+  const presented = markDailyMissionPresented(initial, DATE, FIRST_AT);
+  const accepted = acceptDailyMission(presented, DATE, "2026-07-13T08:01:00.000Z");
+  const skipped = skipDailyMission(initial, DATE, "2026-07-13T08:02:00.000Z");
+
+  assert.equal(presented.dailyRuns[0].maintenance.presentedAt, FIRST_AT);
+  assert.equal(accepted.dailyRuns[0].maintenance.acceptedAt, "2026-07-13T08:01:00.000Z");
+  assert.equal(skipped.dailyRuns[0].maintenance.skippedAt, "2026-07-13T08:02:00.000Z");
+  assert.equal(accepted.level.exp, 0);
+  assert.deepEqual(accepted.rewardLedger, []);
+});
+
+test("v0.4 daily mission completion changes attributes without granting legacy EXP", () => {
+  const initial = acceptDailyMission(
+    ensureDailyRun(fixtureSaveWithMainQuest(), DATE),
+    DATE,
+    FIRST_AT,
+  );
+  const completion = completeDailyMission(
+    initial,
+    DATE,
+    "2026-07-13T08:05:00.000Z",
+  );
+  const repeated = completeDailyMission(
+    completion.save,
+    DATE,
+    "2026-07-13T08:06:00.000Z",
+  );
+
+  assert.equal(completion.save.level.exp, 0);
+  assert.deepEqual(completion.save.rewardLedger, []);
+  assert.ok(completion.result.attributeChanges.length >= 1);
+  assert.equal(completion.result.effect.remainingMinutes, 45);
+  assert.equal(
+    completion.save.activityEvents.filter((event) => event.type === "daily_mission_completed").length,
+    1,
+  );
+  assert.equal(repeated.result, null);
 });
 
 function fixtureSaveWithMainQuest() {

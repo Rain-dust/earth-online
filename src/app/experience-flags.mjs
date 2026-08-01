@@ -8,6 +8,11 @@ export const FIRST_DAY_SEQUENCE_MODES = Object.freeze({
   BROADCAST: "broadcast",
 });
 
+export const SIGNAL_RUNTIME_MODES = Object.freeze({
+  CURRENT: "current",
+  CLASSIC: "classic",
+});
+
 export const ENTRY_ROUTES = Object.freeze({
   CONNECTION: "connection",
   INIT: "init",
@@ -36,6 +41,17 @@ export function resolveFirstDaySequenceMode(
   const requested = new URLSearchParams(String(search || "")).get("firstDay");
 
   return Object.values(FIRST_DAY_SEQUENCE_MODES).includes(requested)
+    ? requested
+    : fallback;
+}
+
+export function resolveSignalRuntimeMode(
+  search = "",
+  fallback = SIGNAL_RUNTIME_MODES.CURRENT,
+) {
+  const requested = new URLSearchParams(String(search || "")).get("signalRuntime");
+
+  return Object.values(SIGNAL_RUNTIME_MODES).includes(requested)
     ? requested
     : fallback;
 }

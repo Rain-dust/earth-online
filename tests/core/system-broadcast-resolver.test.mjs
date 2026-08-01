@@ -175,3 +175,67 @@ test("missing firstConnectedAt produces a truthful first connection before an ac
   assert.deepEqual(broadcast.actions, [{ id: "continue", label: "进入地球" }]);
   assert.equal(broadcast.actions.some((action) => "callback" in action), false);
 });
+
+test("an unpresented daily mission wins over an active main quest when enabled", () => {
+  const broadcast = resolveSystemBroadcast({
+    connection: { firstConnectedAt: "2026-07-18T08:00:00.000Z" },
+    dailyRuns: [{
+      date: "2026-07-20",
+      maintenance: {
+        itemId: "drink-water-250",
+        content: "即刻饮用一杯清水，建议容量 250ml。",
+        presentedAt: null,
+        acceptedAt: null,
+        completedAt: null,
+        skippedAt: null,
+        replacementCount: 0,
+        reward: {
+          primaryAttribute: "energy",
+          changes: { energy: 1 },
+          effect: { name: "滋润", durationMinutes: 45 },
+        },
+      },
+    }],
+    mainQuest: {
+      id: "quest-current",
+      title: "完成 Earth Online",
+      status: "active",
+      startedAt: "2026-07-20T08:00:00.000Z",
+    },
+  }, {
+    now: NOW,
+    includeDailyMission: true,
+    localDate: "2026-07-20",
+  });
+
+  assert.equal(broadcast.type, "daily_mission");
+  assert.equal(broadcast.priority, 150);
+  assert.equal(broadcast.source, "daily_run");
+  assert.equal(broadcast.content.mission, "即刻饮用一杯清水，建议容量 250ml。");
+  assert.deepEqual(broadcast.actions, [
+    { id: "accept_daily_mission", label: "接收任务" },
+    { id: "replace_daily_mission", label: "换一个" },
+    { id: "skip_daily_mission", label: "今日跳过" },
+  ]);
+  assert.equal(broadcast.actions.some((action) => typeof action.callback === "function"), false);
+});
+
+test("a presented daily mission does not repeat on reconnect", () => {
+  const broadcast = resolveSystemBroadcast({
+    connection: { firstConnectedAt: "2026-07-18T08:00:00.000Z" },
+    profile: { nickname: "远行者" },
+    dailyRuns: [{
+      date: "2026-07-20",
+      maintenance: {
+        itemId: "drink-water-250",
+        presentedAt: "2026-07-20T09:00:00.000Z",
+      },
+    }],
+  }, {
+    now: NOW,
+    includeDailyMission: true,
+    localDate: "2026-07-20",
+  });
+
+  assert.equal(broadcast.type, "normal_return");
+});

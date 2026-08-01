@@ -16,6 +16,25 @@ export function getSystemBroadcastMarkup(broadcast = {}) {
         ? `<p class="broadcast-distance">当前主线：${escapeHtml(content.questName)}</p>`
         : ""}
     `;
+  } else if (broadcast?.type === "daily_mission") {
+    const reward = content.reward || {};
+    const effect = reward.effect || {};
+    const changes = Object.entries(reward.changes || {})
+      .map(([id, amount]) => `${getAttributeLabel(id)}值 +${Number(amount)}`)
+      .join("，");
+    message = `
+      <p class="broadcast-kicker">【每日任务已掉落】</p>
+      <h2 class="daily-mission-title">任务内容</h2>
+      <p class="daily-mission-copy">${escapeHtml(content.mission || "今日任务正在生成。")}</p>
+      <p class="daily-mission-reward">
+        <strong>任务奖励</strong><br />
+        获得临时状态【${escapeHtml(effect.name || "运行增益")}】，持续 ${escapeHtml(effect.durationMinutes || 45)}min。<br />
+        ${escapeHtml(changes)}
+      </p>
+      ${content.systemHint ? `
+        <p class="broadcast-status"><strong>系统提示</strong><br />${escapeHtml(content.systemHint)}</p>
+      ` : ""}
+    `;
   } else if (broadcast?.type === "active_main_quest") {
     message = `
       <p class="broadcast-kicker">当前主线仍在运行：</p>
@@ -40,6 +59,18 @@ export function getSystemBroadcastMarkup(broadcast = {}) {
       </div>
     </div>
   `;
+}
+
+function getAttributeLabel(id) {
+  return ({
+    vitality: "体力",
+    energy: "精力",
+    focus: "专注",
+    mood: "心境",
+    order: "秩序",
+    connection: "连接",
+    exploration: "探索",
+  })[id] || id;
 }
 
 export function renderSystemBroadcast(root, {

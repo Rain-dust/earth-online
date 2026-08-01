@@ -2,10 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CONNECTION_ROUTES,
+  getConnectionSignalInterval,
   getConnectionSignalMarkup,
   getConnectionRoute,
   renderEarthConnectionSequence,
 } from "../../src/ui/earth-connection-sequence.mjs";
+
+test("reduced motion removes flourish without collapsing the connection into flashes", () => {
+  assert.equal(getConnectionSignalInterval(false), 520);
+  assert.ok(getConnectionSignalInterval(true) >= 400);
+});
 
 test("connection route recognizes a returning legacy player", () => {
   assert.equal(getConnectionRoute({

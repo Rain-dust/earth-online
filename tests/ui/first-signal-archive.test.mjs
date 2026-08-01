@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { confirmFirstSignalRecord } from "../../src/core/first-signal-archive.mjs";
 import {
   FIRST_SIGNAL_CONFIRMATION_DURATION,
+  REDUCED_FIRST_SIGNAL_CONFIRMATION_DURATION,
   getFirstSignalArchiveMarkup,
   getFirstSignalConfirmationDuration,
   renderFirstSignalArchive,
@@ -43,6 +44,7 @@ test("renderer routes pending actions through explicit callbacks", async () => {
     playerName: "Rain",
     reducedMotion: true,
     onConfirm: (id) => calls.push(`confirm:${id}`),
+    onContinue: () => calls.push("continue"),
     onReturn: () => calls.push("return"),
   });
 
@@ -50,8 +52,11 @@ test("renderer routes pending actions through explicit callbacks", async () => {
   assert.deepEqual(calls, ["confirm:first-signal-once-impossible"]);
   assert.equal(fixture.panel().dataset.recordState, "recovered");
 
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.deepEqual(calls, ["confirm:first-signal-once-impossible", "return"]);
+  await new Promise((resolve) => setTimeout(
+    resolve,
+    REDUCED_FIRST_SIGNAL_CONFIRMATION_DURATION + 20,
+  ));
+  assert.deepEqual(calls, ["confirm:first-signal-once-impossible", "continue"]);
   runtime.destroy();
 });
 
@@ -62,7 +67,7 @@ test("destroy cancels an active confirmation transition", async () => {
     save: {},
     reducedMotion: false,
     onConfirm() {},
-    onReturn: () => {
+    onContinue: () => {
       returnCount += 1;
     },
   });
@@ -77,13 +82,16 @@ test("destroy cancels an active confirmation transition", async () => {
 
 test("motion timing and responsive styles preserve the unframed Earth overlay", async () => {
   assert.equal(getFirstSignalConfirmationDuration(false), FIRST_SIGNAL_CONFIRMATION_DURATION);
-  assert.equal(getFirstSignalConfirmationDuration(true), 0);
+  assert.equal(
+    getFirstSignalConfirmationDuration(true),
+    REDUCED_FIRST_SIGNAL_CONFIRMATION_DURATION,
+  );
 
   const styles = await readFile(new URL("../../src/styles/achievements.css", import.meta.url), "utf8");
   assert.match(styles, /\.first-signal-archive\s*\{[^}]*position:\s*absolute;/s);
   assert.match(styles, /\.first-signal-archive\s*\{[^}]*env\(safe-area-inset-bottom\)/s);
   assert.match(styles, /\.first-signal-actions button\s*\{[^}]*min-height:\s*48px;/s);
-  assert.match(styles, /@media \(max-aspect-ratio:\s*10\s*\/\s*16\)/);
+  assert.match(styles, /@media \(max-width:\s*760px\), \(max-aspect-ratio:\s*10\s*\/\s*16\)/);
   assert.match(styles, /@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*first-signal-archive\.is-confirming/);
   assert.doesNotMatch(styles, /\.first-signal-archive\s*\{[^}]*background:\s*#(?:000|000000|030507);/s);
 });

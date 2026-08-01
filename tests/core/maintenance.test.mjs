@@ -10,6 +10,7 @@ import {
   replaceMaintenance,
   selectMaintenance,
 } from "../../src/core/maintenance.mjs";
+import { DAILY_MISSION_CATALOG } from "../../src/core/daily-mission-catalog.mjs";
 
 test("runtime statuses expose exactly five visible choices", () => {
   const statuses = Object.values(RUNTIME_STATUSES);
@@ -39,7 +40,7 @@ test("each status has at least four concrete maintenance candidates", () => {
   }
 });
 
-test("selectMaintenance avoids the previous three dates and excluded items", () => {
+test("selectMaintenance avoids the previous fourteen dates and excluded items", () => {
   const selected = selectMaintenance({
     date: "2026-07-13",
     status: RUNTIME_STATUSES.STABLE,
@@ -98,11 +99,11 @@ test("selectMaintenance returns a safe fallback when every candidate is excluded
     status: RUNTIME_STATUSES.STABLE,
     recentRuns: [],
     preferences: {
-      excludedIds: MAINTENANCE_CATALOG.map((item) => item.id),
+      excludedIds: DAILY_MISSION_CATALOG.map((item) => item.id),
       customItems: [],
     },
   });
 
   assert.equal(selected.itemId, "safe-pause-two");
-  assert.equal(selected.title, "离开屏幕，活动 2 分钟");
+  assert.equal(selected.title, "离开屏幕，活动 2 分钟。");
 });

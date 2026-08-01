@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   getQuietRuntimeMarkup,
+  patchPlayerTerminalStatus,
   renderQuietRuntime,
 } from "../../src/ui/quiet-runtime.mjs";
 
@@ -50,6 +51,25 @@ test("record feedback distinguishes a new daily record from an update", () => {
   assert.match(updated, /今日玩家记录已更新。/);
 });
 
+test("accepted daily mission expands from the player signal without becoming a fourth channel", () => {
+  const markup = getQuietRuntimeMarkup({
+    playerName: "远行者",
+    activeChannel: "mission",
+    dailyMission: {
+      title: "喝一杯水",
+      content: "即刻饮用一杯清水，建议容量 250ml。",
+      acceptedAt: "2026-07-31T08:00:00.000Z",
+      completedAt: null,
+      skippedAt: null,
+    },
+  });
+
+  assert.match(markup, /data-active-channel="mission"/);
+  assert.match(markup, /即刻饮用一杯清水/);
+  assert.match(markup, /data-daily-mission-action="complete"/);
+  assert.equal((markup.match(/class="quiet-channel-trigger"/g) || []).length, 3);
+});
+
 test("quiet runtime cleanup removes delegated listeners", () => {
   const root = createRoot();
   const cleanup = renderQuietRuntime(root, {
@@ -63,6 +83,33 @@ test("quiet runtime cleanup removes delegated listeners", () => {
   assert.equal(root.listeners.get("click").size, 0);
   assert.equal(root.listeners.get("submit").size, 0);
   assert.equal(root.classList.has("is-quiet"), false);
+});
+
+test("terminal status switches in place without rebuilding the terminal", () => {
+  const buttons = ["stable_operation", "high_load", "low_energy"].map((status) => ({
+    dataset: { playerStatus: status },
+    attributes: { "aria-pressed": String(status === "stable_operation") },
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+  }));
+  const terminal = {
+    querySelectorAll(selector) {
+      return selector === "[data-player-status]" ? buttons : [];
+    },
+  };
+  const root = {
+    querySelector(selector) {
+      return selector === "[data-player-terminal]" ? terminal : null;
+    },
+  };
+
+  assert.equal(patchPlayerTerminalStatus(root, "low_energy"), true);
+  assert.deepEqual(
+    buttons.map((button) => button.attributes["aria-pressed"]),
+    ["false", "false", "true"],
+  );
+  assert.equal(patchPlayerTerminalStatus(root, "unknown"), false);
 });
 
 test("quiet presentation keeps a transparent world layer and visibly mutes inactive channels", async () => {

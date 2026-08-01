@@ -4,7 +4,11 @@ export const CONNECTION_ROUTES = Object.freeze({
 });
 
 const SIGNAL_INTERVAL_MS = 520;
-const REDUCED_MOTION_INTERVAL_MS = 60;
+const REDUCED_MOTION_INTERVAL_MS = 420;
+
+export function getConnectionSignalInterval(reducedMotion = false) {
+  return reducedMotion ? REDUCED_MOTION_INTERVAL_MS : SIGNAL_INTERVAL_MS;
+}
 
 export function getConnectionRoute(save = {}) {
   return save?.profile
@@ -35,7 +39,7 @@ export function renderEarthConnectionSequence(root, {
   cancel = globalThis.clearTimeout,
   onAction = () => {},
 } = {}) {
-  const interval = reducedMotion ? REDUCED_MOTION_INTERVAL_MS : SIGNAL_INTERVAL_MS;
+  const interval = getConnectionSignalInterval(reducedMotion);
   const pendingWaits = new Map();
   let active = true;
 

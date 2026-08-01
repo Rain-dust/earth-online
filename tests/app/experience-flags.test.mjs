@@ -8,6 +8,8 @@ import {
   resolveExperienceMode,
   resolveFirstDaySequenceMode,
   resolvePostConnectionRoute,
+  resolveSignalRuntimeMode,
+  SIGNAL_RUNTIME_MODES,
 } from "../../src/app/experience-flags.mjs";
 
 test("experience mode defaults to the legacy path", () => {
@@ -51,6 +53,15 @@ test("unsupported first-day values preserve the requested fallback", () => {
     resolveFirstDaySequenceMode("?firstDay=future", FIRST_DAY_SEQUENCE_MODES.BROADCAST),
     FIRST_DAY_SEQUENCE_MODES.BROADCAST,
   );
+});
+
+test("signal runtime defaults to current and offers a classic rollback", () => {
+  assert.equal(resolveSignalRuntimeMode("?experience=v04"), SIGNAL_RUNTIME_MODES.CURRENT);
+  assert.equal(
+    resolveSignalRuntimeMode("?experience=v04&signalRuntime=classic"),
+    SIGNAL_RUNTIME_MODES.CLASSIC,
+  );
+  assert.equal(resolveSignalRuntimeMode("?signalRuntime=unknown"), SIGNAL_RUNTIME_MODES.CURRENT);
 });
 
 test("legacy entry keeps the existing profile branch unchanged", () => {

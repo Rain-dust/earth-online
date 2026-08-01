@@ -4,9 +4,12 @@ import {
 } from "../core/first-signal-archive.mjs";
 
 export const FIRST_SIGNAL_CONFIRMATION_DURATION = 2200;
+export const REDUCED_FIRST_SIGNAL_CONFIRMATION_DURATION = 1200;
 
 export function getFirstSignalConfirmationDuration(reducedMotion = false) {
-  return reducedMotion ? 0 : FIRST_SIGNAL_CONFIRMATION_DURATION;
+  return reducedMotion
+    ? REDUCED_FIRST_SIGNAL_CONFIRMATION_DURATION
+    : FIRST_SIGNAL_CONFIRMATION_DURATION;
 }
 
 export function getFirstSignalArchiveMarkup(save, { playerName = "玩家" } = {}) {
@@ -21,6 +24,7 @@ export function renderFirstSignalArchive(root, {
   playerName = "玩家",
   reducedMotion,
   onConfirm,
+  onContinue,
   onReturn,
 } = {}) {
   const documentRef = root?.ownerDocument || document;
@@ -61,7 +65,7 @@ export function renderFirstSignalArchive(root, {
 
     returnTimer = setTimeout(() => {
       returnTimer = null;
-      if (active) onReturn?.();
+      if (active) onContinue?.();
     }, getFirstSignalConfirmationDuration(motionReduced));
   });
 

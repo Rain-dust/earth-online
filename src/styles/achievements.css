@@ -1260,7 +1260,7 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-@media (max-aspect-ratio: 10 / 16) {
+@media (max-width: 760px), (max-aspect-ratio: 10 / 16) {
   .first-signal-archive {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 0.9fr) auto;
@@ -1318,5 +1318,358 @@
   .first-signal-archive.is-confirming .first-signal-line,
   .first-signal-archive.is-confirming .first-signal-copy {
     animation: none !important;
+  }
+}
+
+.old-save-signal-review {
+  position: absolute;
+  z-index: 35;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.88fr) minmax(20rem, 1fr);
+  align-items: end;
+  gap: clamp(2rem, 7vw, 7rem);
+  overflow: hidden;
+  padding:
+    max(2rem, env(safe-area-inset-top))
+    max(3rem, env(safe-area-inset-right))
+    max(3rem, env(safe-area-inset-bottom))
+    max(3rem, env(safe-area-inset-left));
+  background:
+    linear-gradient(90deg, rgba(1, 4, 7, 0.04), rgba(1, 4, 7, 0.12) 48%, rgba(1, 4, 7, 0.5)),
+    radial-gradient(circle at 27% 74%, rgba(191, 150, 54, 0.1), transparent 28%);
+  color: #f4f1e8;
+  pointer-events: none;
+}
+
+.signal-review-exit {
+  position: absolute;
+  z-index: 3;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  padding: 0;
+  place-items: center;
+  background: transparent;
+  color: rgba(223, 235, 238, 0.64);
+  font-size: 1.35rem;
+  pointer-events: auto;
+}
+
+.signal-review-exit:hover,
+.signal-review-exit:focus-visible {
+  background: rgba(6, 14, 20, 0.34);
+  color: #fff;
+  outline: 1px solid rgba(158, 210, 220, 0.46);
+}
+
+.signal-review-progress {
+  position: absolute;
+  top: max(1.4rem, env(safe-area-inset-top));
+  left: max(2rem, env(safe-area-inset-left));
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  color: rgba(154, 207, 216, 0.64);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.signal-review-progress strong {
+  color: rgba(238, 226, 193, 0.86);
+  font-size: 0.76rem;
+  letter-spacing: 0;
+}
+
+.signal-review-art {
+  --signal-metal: #d7b45d;
+  position: relative;
+  align-self: end;
+  justify-self: end;
+  width: min(23rem, 34vw, 48vh);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 22px 42px rgba(0, 0, 0, 0.42));
+  opacity: 0;
+  transform: translate3d(-1rem, 1rem, 0) scale(0.96);
+  animation: old-save-art-arrive 620ms cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+.signal-review-art[data-rarity="common"] { --signal-metal: #cda84f; }
+.signal-review-art[data-rarity="precious"] { --signal-metal: #e0bd60; }
+.signal-review-art[data-rarity="rare"] { --signal-metal: #eadca7; }
+.signal-review-art[data-rarity="ultra_rare"] { --signal-metal: #f1ead2; }
+.signal-review-art[data-rarity="world_record"] { --signal-metal: #fff5c8; }
+
+.signal-review-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 1px color-mix(in srgb, var(--signal-metal) 70%, transparent))
+    drop-shadow(0 0 24px color-mix(in srgb, var(--signal-metal) 14%, transparent));
+}
+
+.signal-review-link {
+  position: absolute;
+  top: 52%;
+  left: calc(100% + 1rem);
+  width: clamp(3rem, 8vw, 8rem);
+  height: 1px;
+  overflow: visible;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--signal-metal) 64%, transparent), rgba(134, 199, 214, 0.12));
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: old-save-link-arrive 420ms 280ms ease-out forwards;
+}
+
+.signal-review-link::after {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--signal-metal);
+  box-shadow: 0 0 14px var(--signal-metal);
+  content: "";
+}
+
+.signal-review-copy {
+  align-self: end;
+  max-width: 35rem;
+  padding-bottom: clamp(1rem, 7vh, 5rem);
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.88);
+  opacity: 0;
+  transform: translate3d(0, 0.75rem, 0);
+  animation: old-save-copy-arrive 520ms 220ms ease-out forwards;
+  pointer-events: auto;
+}
+
+.signal-review-copy > p {
+  margin: 0 0 0.78rem;
+  color: rgba(158, 210, 220, 0.82);
+  font-size: 0.76rem;
+}
+
+.signal-review-copy h2 {
+  margin: 0;
+  color: #f5f1e5;
+  font-size: clamp(2.15rem, 5.3vh, 4.2rem);
+  font-weight: 540;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.signal-review-description {
+  max-width: 31rem;
+  margin-top: 1.05rem;
+  color: rgba(237, 237, 229, 0.84);
+  font-size: clamp(0.92rem, 1.25vw, 1.08rem);
+  line-height: 1.7;
+}
+
+.signal-review-copy > small {
+  display: block;
+  margin-top: 1.15rem;
+  color: color-mix(in srgb, var(--signal-metal, #d7b45d) 76%, #dce9ed);
+  font-size: 0.78rem;
+}
+
+.signal-review-actions {
+  display: flex;
+  gap: 1.3rem;
+  margin-top: 2rem;
+}
+
+.signal-review-actions button {
+  display: grid;
+  min-width: 3.25rem;
+  min-height: 3.25rem;
+  border: 0;
+  border-bottom: 1px solid rgba(158, 210, 220, 0.28);
+  border-radius: 0;
+  padding: 0.25rem 0.15rem 0.45rem;
+  place-items: center;
+  background: transparent;
+  color: rgba(226, 237, 239, 0.7);
+}
+
+.signal-review-actions button strong {
+  font: 500 1.55rem/1 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.signal-review-actions button span {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.signal-review-actions button:hover,
+.signal-review-actions button:focus-visible {
+  border-bottom-color: rgba(238, 213, 145, 0.86);
+  background: transparent;
+  color: #f3dda0;
+  outline: 0;
+  transform: translateY(-2px);
+}
+
+.old-save-signal-review.is-resolving .signal-review-art,
+.old-save-signal-review.is-resolving .signal-review-copy {
+  animation: old-save-signal-resolve 260ms ease-in forwards;
+}
+
+.old-save-signal-review[data-resolution="reject"] .signal-review-art {
+  filter: grayscale(0.75) brightness(0.6);
+}
+
+.old-save-signal-review[data-resolution="defer"] .signal-review-art,
+.old-save-signal-review[data-resolution="defer"] .signal-review-copy {
+  animation-name: old-save-signal-defer;
+}
+
+.signal-review-summary {
+  position: absolute;
+  right: clamp(2rem, 9vw, 9rem);
+  bottom: clamp(3rem, 12vh, 8rem);
+  max-width: 34rem;
+  pointer-events: auto;
+}
+
+.signal-review-summary p {
+  margin: 0 0 0.8rem;
+  color: rgba(158, 210, 220, 0.7);
+  font: 0.72rem/1.4 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.signal-review-summary h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3.3rem);
+  font-weight: 520;
+  letter-spacing: 0;
+}
+
+.signal-review-summary span {
+  display: block;
+  margin-top: 0.8rem;
+  color: rgba(220, 231, 233, 0.7);
+  line-height: 1.7;
+}
+
+.signal-review-summary button {
+  margin-top: 1.5rem;
+  border: 0;
+  border-bottom: 1px solid rgba(158, 210, 220, 0.36);
+  border-radius: 0;
+  padding: 0.55rem 0;
+  background: transparent;
+  color: #f2f1ea;
+}
+
+@keyframes old-save-art-arrive {
+  to { opacity: 0.92; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes old-save-link-arrive {
+  to { transform: scaleX(1); }
+}
+
+@keyframes old-save-copy-arrive {
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes old-save-signal-resolve {
+  to { opacity: 0; transform: translate3d(1.4rem, -0.35rem, 0) scale(0.985); }
+}
+
+@keyframes old-save-signal-defer {
+  to { opacity: 0; transform: translate3d(0, 1.1rem, 0) scale(0.98); }
+}
+
+@media (max-width: 760px), (max-aspect-ratio: 10 / 16) {
+  .old-save-signal-review {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 0.95fr) auto;
+    align-content: end;
+    gap: 1rem;
+    padding:
+      max(3.75rem, env(safe-area-inset-top))
+      max(1.25rem, env(safe-area-inset-right))
+      max(1.5rem, env(safe-area-inset-bottom))
+      max(1.25rem, env(safe-area-inset-left));
+    background: linear-gradient(180deg, rgba(1, 4, 7, 0.02), rgba(1, 4, 7, 0.18) 48%, rgba(1, 4, 7, 0.68));
+  }
+
+  .signal-review-progress {
+    top: max(1.35rem, env(safe-area-inset-top));
+    left: max(1.25rem, env(safe-area-inset-left));
+  }
+
+  .signal-review-art {
+    align-self: end;
+    justify-self: center;
+    width: min(16.5rem, 60vw, 30vh);
+  }
+
+  .signal-review-link {
+    top: calc(100% + 0.45rem);
+    left: 50%;
+    width: 1px;
+    height: 1.75rem;
+    background: linear-gradient(180deg, var(--signal-metal), rgba(134, 199, 214, 0.12));
+    transform: scaleY(0);
+    transform-origin: top;
+    animation-name: old-save-link-arrive-mobile;
+  }
+
+  .signal-review-copy {
+    padding-bottom: 0;
+  }
+
+  .signal-review-copy h2 {
+    font-size: clamp(1.9rem, 4.7vh, 2.8rem);
+  }
+
+  .signal-review-description {
+    margin-top: 0.65rem;
+    line-height: 1.55;
+  }
+
+  .signal-review-copy > small {
+    margin-top: 0.65rem;
+  }
+
+  .signal-review-actions {
+    justify-content: flex-start;
+    margin-top: 1rem;
+  }
+
+  .signal-review-summary {
+    right: max(1.25rem, env(safe-area-inset-right));
+    bottom: max(2rem, env(safe-area-inset-bottom));
+    left: max(1.25rem, env(safe-area-inset-left));
+  }
+}
+
+@keyframes old-save-link-arrive-mobile {
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-review-art,
+  .signal-review-link,
+  .signal-review-copy,
+  .old-save-signal-review.is-resolving .signal-review-art,
+  .old-save-signal-review.is-resolving .signal-review-copy {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
 }

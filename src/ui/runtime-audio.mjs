@@ -19,6 +19,11 @@ const CUES = Object.freeze({
     { frequency: 523, at: 0, duration: 0.22, gain: 0.02 },
     { frequency: 784, at: 0.1, duration: 0.34, gain: 0.017 },
   ],
+  taskSync: [
+    { frequency: 440, at: 0, duration: 0.08, gain: 0.018 },
+    { frequency: 659, at: 0.07, duration: 0.11, gain: 0.02 },
+    { frequency: 880, at: 0.16, duration: 0.2, gain: 0.016 },
+  ],
   archive: [
     { frequency: 196, at: 0, duration: 0.24, gain: 0.018 },
     { frequency: 294, at: 0.12, duration: 0.3, gain: 0.012 },

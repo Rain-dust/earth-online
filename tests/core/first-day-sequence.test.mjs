@@ -9,7 +9,7 @@ import {
 
 const DATE = "2026-07-30";
 
-test("first-day view prioritizes the real current main action", () => {
+test("first-day view delivers the daily mission even when a main quest exists", () => {
   const view = buildFirstDaySequenceView({
     profile: {
       nickname: "Rain",
@@ -31,10 +31,10 @@ test("first-day view prioritizes the real current main action", () => {
   }, DATE);
 
   assert.equal(view.playerName, "Rain");
-  assert.equal(view.task.type, "main");
-  assert.equal(view.task.id, "action-1");
-  assert.equal(view.task.title, "Complete the first signal");
-  assert.match(view.task.source, /Ship Earth Online/);
+  assert.equal(view.task.type, "maintenance");
+  assert.equal(view.task.id, "maintenance-1");
+  assert.equal(view.task.title, "Take a short walk");
+  assert.equal(view.task.source, "地球 Online 每日任务");
 });
 
 test("first-day view uses the real maintenance item when no main action exists", () => {

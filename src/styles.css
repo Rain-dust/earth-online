@@ -118,13 +118,35 @@ body.is-zooming #home-overlay {
 }
 
 .title-lockup .population-worldview {
-  display: block;
+  display: grid;
   width: fit-content;
   max-width: 100%;
+  gap: 0.18rem;
   margin: 1.2rem 0 0;
   color: rgba(217, 239, 251, 0.78);
   font-size: clamp(0.86rem, 1.3vw, 1.05rem);
   text-shadow: 0 10px 30px rgba(0, 4, 12, 0.86);
+}
+
+.title-lockup .population-worldview > span {
+  color: rgba(123, 211, 252, 0.78);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+}
+
+.title-lockup .population-worldview > strong {
+  color: rgba(225, 244, 255, 0.92);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(1.28rem, 2.4vw, 2.15rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+  letter-spacing: 0;
+}
+
+.title-lockup .population-worldview > small {
+  color: rgba(171, 205, 223, 0.52);
+  font-size: 0.7rem;
 }
 
 .title-lockup .population-disclosure {
@@ -2280,6 +2302,34 @@ body.is-zooming #home-overlay {
   font-size: 0.92rem;
 }
 
+.daily-mission-title {
+  margin-top: 0.7rem !important;
+  color: rgba(141, 220, 255, 0.74) !important;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace !important;
+  font-size: 0.72rem !important;
+}
+
+.daily-mission-copy {
+  max-width: 28rem;
+  margin-top: 0.3rem !important;
+  color: rgba(241, 249, 255, 0.98);
+  font-family: "Songti SC", "STSong", SimSun, "Microsoft YaHei", serif;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+}
+
+.daily-mission-reward {
+  margin-top: 1rem !important;
+  color: rgba(210, 233, 246, 0.78);
+  font-size: 0.82rem;
+}
+
+.daily-mission-reward strong,
+.broadcast-status strong {
+  color: rgba(136, 219, 255, 0.78);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 .broadcast-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2328,6 +2378,97 @@ body.is-zooming #home-overlay {
   color: rgba(160, 205, 229, 0.38);
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
   font-size: 0.68rem;
+}
+
+.quiet-player-signal {
+  position: absolute;
+  z-index: 5;
+  top: clamp(1.4rem, 4vh, 3rem);
+  right: clamp(1.5rem, 5vw, 5rem);
+  display: grid;
+  justify-items: start;
+  min-width: 10rem;
+  color: rgba(166, 211, 234, 0.46);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  font-size: 0.66rem;
+  text-shadow: 0 10px 28px rgba(0, 3, 10, 0.96);
+  transition: left 140ms linear, top 140ms linear;
+}
+
+#system-root.has-player-signal-position .quiet-player-signal {
+  top: clamp(5.5rem, var(--player-signal-y), calc(100svh - 9rem));
+  right: auto;
+  left: clamp(1.2rem, calc(var(--player-signal-x) + 2.4rem), calc(100vw - 15rem));
+}
+
+.quiet-player-signal::before {
+  position: absolute;
+  top: 0.72rem;
+  right: calc(100% + 0.35rem);
+  width: 2rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(120, 213, 255, 0.15), rgba(151, 226, 255, 0.85));
+  box-shadow: 0 0 10px rgba(110, 208, 255, 0.38);
+  content: "";
+}
+
+.quiet-player-name,
+.quiet-daily-signal {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.quiet-player-name {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+  color: rgba(224, 244, 254, 0.88);
+  font-size: 0.82rem;
+}
+
+.quiet-player-name > i {
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 1px solid rgba(189, 235, 255, 0.96);
+  border-radius: 50%;
+  background: rgba(104, 209, 255, 0.74);
+  box-shadow: 0 0 0 3px rgba(102, 203, 249, 0.1), 0 0 15px rgba(102, 203, 249, 0.7);
+  animation: player-signal-pulse 2.2s ease-in-out infinite;
+}
+
+.quiet-player-name:hover,
+.quiet-player-name:focus-visible {
+  outline: 0;
+  color: #ffffff;
+}
+
+.quiet-daily-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  padding: 0;
+  color: rgba(245, 211, 140, 0.76);
+  font-size: 0.68rem;
+}
+
+.quiet-daily-signal > i {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 50%;
+  background: #f3ce7d;
+  box-shadow: 0 0 9px rgba(243, 206, 125, 0.68);
+}
+
+.quiet-daily-signal:hover,
+.quiet-daily-signal:focus-visible {
+  outline: 0;
+  color: rgba(255, 231, 178, 0.98);
 }
 
 .quiet-channels {
@@ -2400,6 +2541,366 @@ body.is-zooming #home-overlay {
 .quiet-runtime[data-active-channel="quest"] .quiet-disclosure {
   top: 20%;
   right: clamp(1.5rem, 6vw, 6rem);
+}
+
+.quiet-runtime[data-active-channel="mission"] .quiet-disclosure {
+  top: 21%;
+  right: clamp(1.5rem, 6vw, 6rem);
+}
+
+.quiet-mission-kicker {
+  color: rgba(241, 203, 122, 0.82) !important;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem !important;
+}
+
+.quiet-mission h2 {
+  max-width: 25rem;
+  margin-top: 0.45rem;
+}
+
+.player-command-strip {
+  position: absolute;
+  z-index: 12;
+  right: clamp(1.2rem, 5vw, 5rem);
+  bottom: clamp(1.4rem, 5vh, 3.5rem);
+  display: flex;
+  width: min(36rem, calc(100vw - 2.4rem));
+  align-items: center;
+  gap: 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(158, 217, 243, 0.2);
+  border-radius: 7px;
+  padding: 0.72rem 0.9rem;
+  background: rgba(14, 30, 43, 0.72);
+  box-shadow: 0 18px 48px rgba(0, 5, 14, 0.34);
+  color: rgba(226, 240, 248, 0.82);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  backdrop-filter: blur(14px) saturate(125%);
+  animation: command-strip-in 340ms ease-out both;
+}
+
+.player-command-strip > span,
+.terminal-prompt > span,
+.task-sync-terminal p > span {
+  color: #f0a9c5;
+}
+
+.player-command-strip > strong {
+  overflow: hidden;
+  color: #a8dff3;
+  font-weight: 450;
+  text-overflow: clip;
+  white-space: nowrap;
+  animation: command-type 480ms steps(28, end) both;
+}
+
+.player-command-strip > i,
+.terminal-prompt > i {
+  width: 0.5rem;
+  height: 1em;
+  background: rgba(187, 230, 246, 0.86);
+  animation: terminal-cursor 800ms steps(1) infinite;
+}
+
+.player-terminal {
+  position: absolute;
+  z-index: 12;
+  top: clamp(1.3rem, 6vh, 4rem);
+  right: clamp(1.2rem, 4vw, 4rem);
+  display: grid;
+  width: min(34rem, calc(100vw - 2.4rem));
+  max-height: calc(100svh - 2.6rem);
+  overflow: hidden;
+  border: 1px solid rgba(166, 222, 246, 0.24);
+  border-radius: 8px;
+  background: rgba(16, 31, 43, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 28px 80px rgba(0, 4, 12, 0.48);
+  color: rgba(224, 239, 247, 0.84);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  text-shadow: none;
+  backdrop-filter: blur(20px) saturate(122%);
+  animation: terminal-window-in 420ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.player-terminal-bar,
+.task-sync-terminal > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.3rem;
+  border-bottom: 1px solid rgba(164, 220, 244, 0.12);
+  padding: 0 0.72rem;
+  background: rgba(8, 19, 29, 0.34);
+  color: rgba(176, 207, 222, 0.56);
+  font-size: 0.66rem;
+}
+
+.terminal-window-dots {
+  display: flex;
+  gap: 0.33rem;
+}
+
+.terminal-window-dots i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #e98484;
+}
+
+.terminal-window-dots i:nth-child(2) { background: #e4c36e; }
+.terminal-window-dots i:nth-child(3) { background: #76c49b; }
+
+.player-terminal-bar > button {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  background: transparent;
+  color: rgba(190, 217, 230, 0.55);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.player-terminal-body {
+  overflow-y: auto;
+  padding: 1rem 1.1rem 1.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(135, 210, 242, 0.22) transparent;
+}
+
+.terminal-path,
+.terminal-prompt {
+  margin: 0;
+  color: rgba(169, 199, 216, 0.5);
+  font-size: 0.68rem;
+}
+
+.terminal-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.18rem;
+  margin-top: 0.35rem;
+  color: #a9d9ee;
+}
+
+.terminal-identity {
+  display: grid;
+  gap: 0.2rem;
+  margin: 1.1rem 0 1rem;
+}
+
+.terminal-identity small,
+.terminal-effects h3,
+.terminal-status h3 {
+  color: rgba(139, 214, 244, 0.65);
+  font-size: 0.64rem;
+  font-weight: 450;
+}
+
+.terminal-identity strong {
+  color: rgba(241, 249, 253, 0.96);
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 580;
+}
+
+.terminal-attributes {
+  display: grid;
+  gap: 0.58rem;
+}
+
+.terminal-attribute {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(5rem, 1fr) 2rem;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.terminal-attribute > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.terminal-attribute b {
+  color: rgba(227, 241, 248, 0.88);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.terminal-attribute small {
+  color: rgba(154, 193, 211, 0.38);
+  font-size: 0.52rem;
+}
+
+.terminal-attribute > i {
+  position: relative;
+  height: 1px;
+  overflow: visible;
+  background: rgba(140, 197, 220, 0.16);
+}
+
+.terminal-attribute > i > em {
+  position: absolute;
+  inset: -1px auto auto 0;
+  width: calc(var(--attribute-value) * 1%);
+  height: 2px;
+  background: linear-gradient(90deg, rgba(240, 155, 190, 0.66), rgba(119, 210, 246, 0.9));
+  box-shadow: 0 0 8px rgba(118, 210, 246, 0.32);
+  transform-origin: left;
+  animation: attribute-scan 620ms ease-out both;
+}
+
+.terminal-attribute > strong {
+  color: #b9e5f5;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: right;
+}
+
+.terminal-effects,
+.terminal-status {
+  margin-top: 1.1rem;
+  border-top: 1px solid rgba(141, 202, 229, 0.11);
+  padding-top: 0.82rem;
+}
+
+.terminal-effects h3,
+.terminal-status h3 {
+  margin: 0 0 0.55rem;
+}
+
+.terminal-effect,
+.terminal-empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.67rem;
+  line-height: 1.55;
+}
+
+.terminal-effect strong { color: #efb5cc; }
+.terminal-effect span,
+.terminal-empty { color: rgba(187, 215, 228, 0.56); }
+
+.terminal-status-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.terminal-status-options button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: 1px solid rgba(143, 203, 229, 0.12);
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+  background: rgba(159, 214, 237, 0.04);
+  color: rgba(187, 215, 228, 0.6);
+  font: inherit;
+  font-size: 0.61rem;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.terminal-status-options button svg {
+  width: 0.76rem;
+  height: 0.76rem;
+}
+
+.terminal-status-options button[aria-pressed="true"] {
+  border-color: rgba(139, 215, 245, 0.4);
+  background: rgba(119, 199, 231, 0.1);
+  color: #dff5fd;
+}
+
+.task-sync-terminal {
+  position: absolute;
+  z-index: 13;
+  right: clamp(1rem, 4vw, 4rem);
+  bottom: clamp(1rem, 5vh, 3rem);
+  width: min(27rem, calc(100vw - 2rem));
+  overflow: hidden;
+  border: 1px solid rgba(154, 218, 243, 0.2);
+  border-radius: 7px;
+  background: rgba(12, 26, 38, 0.86);
+  box-shadow: 0 22px 62px rgba(0, 4, 12, 0.5);
+  color: rgba(220, 238, 247, 0.82);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  font-size: 0.68rem;
+  text-shadow: none;
+  backdrop-filter: blur(18px);
+  animation: task-terminal-in 460ms cubic-bezier(0.18, 0.78, 0.2, 1) both;
+}
+
+.task-sync-terminal > header {
+  grid-template-columns: auto 1fr;
+}
+
+.task-sync-terminal > div {
+  padding: 0.8rem 0.9rem 0.95rem;
+}
+
+.task-sync-terminal p,
+.terminal-inline-feedback p {
+  margin: 0.28rem 0 0;
+  line-height: 1.5;
+}
+
+.terminal-effect-result { color: #efb5cc; }
+.terminal-growth { color: #f0d28f; }
+.terminal-achievement-signal { color: #aadff3; }
+
+.terminal-inline-feedback {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(141, 202, 229, 0.12);
+  padding-top: 0.75rem;
+  color: rgba(220, 238, 247, 0.82);
+  font-size: 0.67rem;
+}
+
+@keyframes player-signal-pulse {
+  0%, 100% { opacity: 0.72; transform: scale(0.86); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@keyframes command-strip-in {
+  from { opacity: 0; transform: translateY(0.7rem) scaleX(0.82); }
+  to { opacity: 1; transform: translateY(0) scaleX(1); }
+}
+
+@keyframes command-type {
+  from { max-width: 0; }
+  to { max-width: 30rem; }
+}
+
+@keyframes terminal-window-in {
+  from { opacity: 0; transform: translateY(0.8rem) scale(0.975); filter: blur(7px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes terminal-cursor {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+
+@keyframes attribute-scan {
+  from { transform: scaleX(0); opacity: 0.3; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes task-terminal-in {
+  from { opacity: 0; transform: translateY(1rem) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .quiet-disclosure h2,
@@ -2859,6 +3360,8 @@ body.is-zooming #home-overlay {
     bottom: 18%;
     left: 1.25rem;
     width: auto;
+    max-height: 72svh;
+    overflow-y: auto;
   }
 
   .title-lockup {
@@ -2883,6 +3386,17 @@ body.is-zooming #home-overlay {
     right: 1.25rem;
   }
 
+  .quiet-player-signal {
+    top: 1.2rem;
+    right: 1.2rem;
+    left: auto;
+  }
+
+  #system-root.has-player-signal-position .quiet-player-signal {
+    top: clamp(5rem, var(--player-signal-y), calc(100svh - 10rem));
+    left: clamp(1rem, calc(var(--player-signal-x) + 1.6rem), calc(100vw - 12.5rem));
+  }
+
   .quiet-channel-trigger:nth-child(1) {
     bottom: 2rem;
     left: 1.25rem;
@@ -2899,12 +3413,36 @@ body.is-zooming #home-overlay {
   }
 
   .quiet-runtime[data-active-channel="record"] .quiet-disclosure,
-  .quiet-runtime[data-active-channel="quest"] .quiet-disclosure {
+  .quiet-runtime[data-active-channel="quest"] .quiet-disclosure,
+  .quiet-runtime[data-active-channel="mission"] .quiet-disclosure {
     top: auto;
     right: 1.25rem;
     bottom: 8.5rem;
     left: 1.25rem;
     width: auto;
+  }
+
+  .player-command-strip {
+    right: 1rem;
+    bottom: 1rem;
+    width: calc(100vw - 2rem);
+  }
+
+  .player-terminal {
+    top: auto;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: calc(100vw - 1.5rem);
+    max-height: 66svh;
+  }
+
+  .terminal-attribute {
+    grid-template-columns: 6.8rem minmax(3.5rem, 1fr) 1.7rem;
+    gap: 0.45rem;
+  }
+
+  .terminal-attribute small {
+    display: none;
   }
 
   .player-onboarding-sequence {
@@ -2946,6 +3484,10 @@ body.is-zooming #home-overlay {
   .player-onboarding-sequence,
   .system-broadcast,
   .quiet-disclosure,
+  .player-command-strip,
+  .player-terminal,
+  .task-sync-terminal,
+  .terminal-attribute > i > em,
   #system-root.has-world-feedback .player-onboarding-sequence::after {
     animation-duration: 1ms;
   }

@@ -14,6 +14,11 @@ const ACTIONS = Object.freeze({
     Object.freeze({ id: "view_main_quest", label: "查看主线" }),
     Object.freeze({ id: "dismiss", label: "暂不处理" }),
   ]),
+  dailyMission: Object.freeze([
+    Object.freeze({ id: "accept_daily_mission", label: "接收任务" }),
+    Object.freeze({ id: "replace_daily_mission", label: "换一个" }),
+    Object.freeze({ id: "skip_daily_mission", label: "今日跳过" }),
+  ]),
   normalReturn: Object.freeze([
     Object.freeze({ id: "continue", label: "继续运行" }),
   ]),
@@ -84,6 +89,8 @@ export function formatTimeDistance(timestamp, now = new Date().toISOString()) {
 export function resolveSystemBroadcast(save = {}, {
   now = new Date().toISOString(),
   previousLastActiveAt = null,
+  includeDailyMission = false,
+  localDate = "",
 } = {}) {
   const quest = save?.mainQuest?.status === "active" ? save.mainQuest : null;
 
@@ -98,6 +105,29 @@ export function resolveSystemBroadcast(save = {}, {
         questName: quest ? String(quest.title || "").trim() : "",
       },
       actions: ACTIONS.firstConnection.map((action) => ({ ...action })),
+    };
+  }
+
+  const dailyMission = includeDailyMission
+    ? resolvePendingDailyMission(save, localDate)
+    : null;
+  if (dailyMission) {
+    return {
+      type: "daily_mission",
+      priority: 150,
+      source: "daily_run",
+      content: {
+        date: localDate,
+        itemId: dailyMission.itemId,
+        mission: dailyMission.content || dailyMission.title,
+        systemHint: dailyMission.systemHint || "",
+        reward: dailyMission.reward || null,
+        canReplace: Number(dailyMission.replacementCount || 0) < 1,
+      },
+      actions: ACTIONS.dailyMission
+        .filter((action) => action.id !== "replace_daily_mission"
+          || Number(dailyMission.replacementCount || 0) < 1)
+        .map((action) => ({ ...action })),
     };
   }
 
@@ -129,6 +159,23 @@ export function resolveSystemBroadcast(save = {}, {
     },
     actions: ACTIONS.normalReturn.map((action) => ({ ...action })),
   };
+}
+
+function resolvePendingDailyMission(save, localDate) {
+  if (!localDate) return null;
+  const run = asArray(save?.dailyRuns).find((item) => item?.date === localDate);
+  const mission = run?.maintenance || null;
+
+  if (
+    !mission
+    || mission.presentedAt
+    || mission.completedAt
+    || mission.skippedAt
+  ) {
+    return null;
+  }
+
+  return mission;
 }
 
 function isValidTimestamp(value) {
