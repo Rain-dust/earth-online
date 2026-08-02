@@ -2,6 +2,7 @@ import { appendActivityEvent } from "./activity-log.mjs";
 import { normalizeRuntimeStatus } from "./constants.mjs";
 import { replaceMaintenance, selectMaintenance } from "./maintenance.mjs";
 import { grantDailyExp } from "./progression.mjs";
+import { applyMissionReward } from "./player-runtime.mjs";
 
 const DAILY_REWARDS = Object.freeze({
   main: { suffix: "main", exp: 20 },
@@ -168,6 +169,82 @@ export function syncMaintenance(save, date, now = new Date().toISOString()) {
   return grantReward(next, date, "maintenance", now);
 }
 
+export function markDailyMissionPresented(save, date, now = new Date().toISOString()) {
+  const run = findRun(save, date);
+  if (!run?.maintenance || run.maintenance.presentedAt) return save;
+
+  return updateRun(save, date, (current) => ({
+    ...current,
+    maintenance: { ...current.maintenance, presentedAt: now },
+  }));
+}
+
+export function acceptDailyMission(save, date, now = new Date().toISOString()) {
+  const run = findRun(save, date);
+  if (!run?.maintenance || run.maintenance.skippedAt || run.maintenance.completedAt) return save;
+
+  return updateRun(save, date, (current) => ({
+    ...current,
+    maintenance: {
+      ...current.maintenance,
+      presentedAt: current.maintenance.presentedAt || now,
+      acceptedAt: current.maintenance.acceptedAt || now,
+    },
+  }));
+}
+
+export function skipDailyMission(save, date, now = new Date().toISOString()) {
+  const run = findRun(save, date);
+  if (!run?.maintenance || run.maintenance.completedAt) return save;
+
+  return updateRun(save, date, (current) => ({
+    ...current,
+    maintenance: {
+      ...current.maintenance,
+      presentedAt: current.maintenance.presentedAt || now,
+      skippedAt: current.maintenance.skippedAt || now,
+    },
+  }));
+}
+
+export function completeDailyMission(save, date, now = new Date().toISOString()) {
+  const run = findRun(save, date);
+  if (!run?.maintenance || run.maintenance.completedAt || !run.maintenance.reward) {
+    return { save, result: null };
+  }
+
+  const applied = applyMissionReward(save.playerRuntime, run.maintenance.reward, { now });
+  let next = updateRun(save, date, (current) => ({
+    ...current,
+    maintenance: {
+      ...current.maintenance,
+      presentedAt: current.maintenance.presentedAt || now,
+      acceptedAt: current.maintenance.acceptedAt || now,
+      completedAt: now,
+    },
+  }));
+  next = {
+    ...next,
+    playerRuntime: applied.runtime,
+  };
+  next = appendActivityEvent(next, {
+    id: `${date}:daily-mission`,
+    type: "daily_mission_completed",
+    localDate: date,
+    at: now,
+    questId: null,
+    payload: {
+      itemId: run.maintenance.itemId,
+      title: run.maintenance.title,
+      attributeChanges: applied.result.attributeChanges,
+      baseChanges: applied.result.baseChanges,
+      effectId: applied.result.effect?.id || null,
+    },
+  });
+
+  return { save: next, result: applied.result };
+}
+
 export function saveFreeRecord(save, date, input, now = new Date().toISOString()) {
   const run = findRun(save, date);
   const text = String(input?.text || "").trim();
@@ -245,6 +322,9 @@ export function setDailyStatus(save, date, status) {
 
   const nextStatus = normalizeRuntimeStatus(status);
   const untouched = !run.maintenance?.completedAt
+    && !run.maintenance?.presentedAt
+    && !run.maintenance?.acceptedAt
+    && !run.maintenance?.skippedAt
     && Number(run.maintenance?.replacementCount || 0) === 0;
   const nextMaintenance = untouched ? selectMaintenance({
     date,

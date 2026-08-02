@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>玩家信号到系统播报 · 地球 Online</title>
+    <base href="../" />
+    <link rel="stylesheet" href="./qa/player-signal-anchor-study.css" />
+    <link rel="stylesheet" href="./qa/anchor-broadcast-motion.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.185.1"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main
+      id="anchor-broadcast-study"
+      class="anchor-study anchor-broadcast-study"
+      data-variant="lock"
+      data-phase="idle"
+    >
+      <div id="earth-stage" class="earth-stage" aria-hidden="true"></div>
+
+      <header class="study-header">
+        <p>PLAYER SIGNAL / BROADCAST STUDY</p>
+        <strong id="study-title">玩家坐标通信</strong>
+      </header>
+
+      <section id="signal-layer" class="signal-layer" aria-label="玩家城市信号">
+        <button
+          id="player-signal"
+          class="player-signal"
+          type="button"
+          aria-label="接收当前系统播报"
+          aria-controls="broadcast-root"
+          aria-expanded="false"
+        >
+          <span class="signal-contrast" aria-hidden="true"></span>
+
+          <span class="city-light-field" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+
+          <span class="lock-visual" aria-hidden="true">
+            <i class="lock-corner lock-corner-nw"></i>
+            <i class="lock-corner lock-corner-ne"></i>
+            <i class="lock-corner lock-corner-se"></i>
+            <i class="lock-corner lock-corner-sw"></i>
+            <i class="lock-core"></i>
+          </span>
+        </button>
+
+        <div id="signal-identity" class="signal-identity">
+          <strong id="city-name">上海</strong>
+          <span class="identity-state">玩家坐标已确认</span>
+          <span id="city-coordinates" class="identity-coordinates">
+            31.23 N · 121.47 E
+          </span>
+        </div>
+      </section>
+
+      <svg
+        id="broadcast-link"
+        class="broadcast-link"
+        aria-hidden="true"
+      >
+        <path id="broadcast-path" vector-effect="non-scaling-stroke"></path>
+        <circle id="signal-packet" class="signal-packet" r="3"></circle>
+      </svg>
+
+      <section
+        id="broadcast-root"
+        class="anchor-broadcast-copy"
+        aria-label="当前系统播报"
+        aria-hidden="true"
+        inert
+      ></section>
+
+      <p id="study-note" class="study-note">
+        点击玩家坐标，接收当前系统播报。
+      </p>
+    </main>
+
+    <script type="module" src="./qa/anchor-broadcast-motion.mjs"></script>
+  </body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>玩家信号锚点研究 · 地球 Online</title>
+    <base href="../" />
+    <link rel="stylesheet" href="./qa/player-signal-anchor-study.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.185.1"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="anchor-study" class="anchor-study" data-variant="beacon">
+      <div id="earth-stage" class="earth-stage" aria-hidden="true"></div>
+
+      <header class="study-header">
+        <p>PLAYER SIGNAL / VISIBILITY STUDY</p>
+        <strong>玩家城市信号形态</strong>
+      </header>
+
+      <div class="variant-switcher" role="group" aria-label="选择玩家信号形态">
+        <button type="button" data-variant-select="beacon" aria-pressed="true">
+          A · 城市信标
+        </button>
+        <button type="button" data-variant-select="lock" aria-pressed="false">
+          B · 玩家定位
+        </button>
+        <button type="button" data-variant-select="city" aria-pressed="false">
+          C · 城市点亮
+        </button>
+      </div>
+
+      <section id="signal-layer" class="signal-layer" aria-label="玩家城市信号">
+        <button
+          id="player-signal"
+          class="player-signal"
+          type="button"
+          aria-label="激活玩家城市信号"
+        >
+          <span class="signal-contrast" aria-hidden="true"></span>
+
+          <span class="city-light-field" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+
+          <span class="beacon-visual" aria-hidden="true">
+            <i class="beacon-mast"></i>
+            <i class="beacon-core"></i>
+            <i class="beacon-arc beacon-arc-a"></i>
+            <i class="beacon-arc beacon-arc-b"></i>
+            <i class="beacon-tick beacon-tick-a"></i>
+            <i class="beacon-tick beacon-tick-b"></i>
+            <i class="beacon-pulse"></i>
+          </span>
+
+          <span class="lock-visual" aria-hidden="true">
+            <i class="lock-corner lock-corner-nw"></i>
+            <i class="lock-corner lock-corner-ne"></i>
+            <i class="lock-corner lock-corner-se"></i>
+            <i class="lock-corner lock-corner-sw"></i>
+            <i class="lock-core"></i>
+          </span>
+        </button>
+
+        <div class="signal-identity" aria-live="polite">
+          <strong id="city-name">上海</strong>
+          <span id="identity-state" class="identity-state">玩家信号</span>
+          <span id="city-coordinates" class="identity-coordinates">
+            31.23 N · 121.47 E
+          </span>
+        </div>
+      </section>
+
+      <p class="study-note">
+        点击信号可重播反馈。地球位置已锁定，云层与轨道仍保持运行。
+      </p>
+    </main>
+
+    <script type="module" src="./qa/player-signal-anchor-study.mjs"></script>
+  </body>
+</html>

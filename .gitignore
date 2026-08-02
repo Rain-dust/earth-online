@@ -1,4 +1,5 @@
 .worktrees/
 .superpowers/
 .server-*.log
+server-*.log
 node_modules/

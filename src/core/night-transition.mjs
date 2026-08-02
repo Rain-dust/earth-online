@@ -1,3 +1,5 @@
+import { getLocalDateKey } from "./local-date.mjs";
+
 export function getNightTransitionDuration(archive, dateKey, reducedMotion) {
   if (reducedMotion === true) {
     return 250;
@@ -11,9 +13,10 @@ export function getNightTransitionDuration(archive, dateKey, reducedMotion) {
   return safeArchive.lastSwitchDate === dateKey ? 700 : 1300;
 }
 
-export function recordNightSwitch(archive, now = new Date().toISOString()) {
+export function recordNightSwitch(archive, now = new Date()) {
   const safeArchive = isObject(archive) ? archive : {};
-  const dateKey = now.slice(0, 10);
+  const timestamp = now instanceof Date ? now.toISOString() : now;
+  const dateKey = getLocalDateKey(now);
   const sameDay = safeArchive.lastSwitchDate === dateKey;
   const count = isNonnegativeInteger(safeArchive.switchCount)
     ? safeArchive.switchCount
@@ -23,7 +26,7 @@ export function recordNightSwitch(archive, now = new Date().toISOString()) {
     ...safeArchive,
     firstNightEnteredAt: isNonemptyString(safeArchive.firstNightEnteredAt)
       ? safeArchive.firstNightEnteredAt
-      : now,
+      : timestamp,
     lastSwitchDate: dateKey,
     switchCount: sameDay ? count + 1 : 1,
   };

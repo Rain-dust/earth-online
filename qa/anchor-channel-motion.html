@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="../" />
+    <title>玩家锚点动效样片 · 地球 Online</title>
+    <link rel="stylesheet" href="./qa/anchor-channel-motion.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three",
+          "three/": "https://esm.sh/three/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="motion-prototype" data-variant="a">
+      <div id="globe-stage" aria-hidden="true"></div>
+
+      <header class="prototype-header">
+        <div>
+          <p>PLAYER SIGNAL / MOTION STUDY</p>
+          <strong>玩家锚点动效样片</strong>
+        </div>
+        <div class="variant-switch" aria-label="选择动效版本">
+          <button type="button" data-variant-select="a" aria-pressed="true">A · 直接展开</button>
+          <button type="button" data-variant-select="b" aria-pressed="false">B · 地平线截获</button>
+        </div>
+      </header>
+
+      <section id="motion-layer" class="motion-layer" aria-label="玩家通信通道">
+        <svg class="signal-drawing" aria-hidden="true">
+          <path class="signal-path signal-path-primary" pathLength="1"></path>
+          <path class="signal-path signal-path-secondary" pathLength="1"></path>
+          <circle class="signal-gate" r="2.5"></circle>
+        </svg>
+
+        <button
+          id="anchor-control"
+          class="anchor-control"
+          type="button"
+          aria-label="打开玩家通信通道"
+          aria-expanded="false"
+        >
+          <span class="anchor-control-ring"></span>
+          <span class="anchor-control-core"></span>
+        </button>
+
+        <div class="channel-cluster" aria-label="通信通道">
+          <button type="button" class="channel-node" data-channel="task">
+            <span>今日任务</span>
+          </button>
+          <button type="button" class="channel-node" data-channel="signal">
+            <span>发送信号</span>
+          </button>
+          <button type="button" class="channel-node" data-channel="quest">
+            <span>当前主线</span>
+          </button>
+        </div>
+
+        <section class="channel-content" aria-live="polite">
+          <button type="button" class="content-close" aria-label="关闭当前通道">×</button>
+          <p class="content-label">今日任务</p>
+          <h1>确认地表</h1>
+          <p class="content-copy">去看一眼你所在城市此刻的天空。</p>
+          <div class="content-actions">
+            <button type="button">完成</button>
+            <button type="button">换一项</button>
+            <button type="button" data-motion-close>稍后</button>
+          </div>
+        </section>
+
+        <p class="player-presence">
+          <span id="location-label">上海节点</span>
+          <span aria-hidden="true">·</span>
+          <span>信号稳定</span>
+        </p>
+      </section>
+
+      <footer class="prototype-hint">
+        点击城市锚点，选择“今日任务”查看完整动作
+      </footer>
+    </main>
+
+    <script type="module" src="./qa/anchor-channel-motion.mjs"></script>
+  </body>
+</html>

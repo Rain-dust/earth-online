@@ -8,6 +8,7 @@ import {
   getAchievementInstanceId,
   getOldSaveCandidateIds,
   normalizeAchievementArchive,
+  rejectOldSaveAchievement,
   restoreDismissedOldSaveAchievement,
   revokeOldSaveAchievement,
   setAchievementPresentation,
@@ -19,6 +20,7 @@ test("createEmptyAchievementArchive returns the exact initial archive", () => {
     scanStatus: "pending",
     candidateIds: [],
     dismissedIds: [],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 0,
@@ -61,6 +63,7 @@ test("normalizeAchievementArchive accepts malformed values and sanitizes ID arra
     scanStatus: "complete",
     candidateIds: ["first", "second"],
     dismissedIds: ["dismissed"],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 4,
@@ -234,6 +237,23 @@ test("dismiss and restore update dismissed IDs once without deleting confirmed r
   assert.deepEqual(restored.achievements, [record]);
   assert.deepEqual(save, before);
   assert.equal(dismissOldSaveAchievement(save, "unknown-id"), save);
+});
+
+test("reject permanently separates a record from deferred old-save signals", () => {
+  const save = {
+    achievements: [],
+    achievementArchive: {
+      ...createEmptyAchievementArchive(),
+      dismissedIds: ["academic-complete"],
+    },
+  };
+
+  const rejected = rejectOldSaveAchievement(save, "academic-complete");
+  assert.deepEqual(rejected.achievementArchive.dismissedIds, []);
+  assert.deepEqual(rejected.achievementArchive.rejectedIds, ["academic-complete"]);
+
+  const restored = restoreDismissedOldSaveAchievement(rejected, "academic-complete");
+  assert.deepEqual(restored.achievementArchive.rejectedIds, []);
 });
 
 test("setAchievementPresentation supports legacy IDs and ignores non-boolean values", () => {

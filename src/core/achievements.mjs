@@ -9,6 +9,7 @@ export function createEmptyAchievementArchive() {
     scanStatus: "pending",
     candidateIds: [],
     dismissedIds: [],
+    rejectedIds: [],
     firstNightEnteredAt: null,
     lastSwitchDate: null,
     switchCount: 0,
@@ -73,6 +74,7 @@ export function confirmOldSaveAchievement(save, id, now = new Date().toISOString
     achievementArchive: {
       ...archive,
       dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+      rejectedIds: archive.rejectedIds.filter((rejectedId) => rejectedId !== definition.id),
     },
   };
 }
@@ -93,6 +95,23 @@ export function dismissOldSaveAchievement(save, id) {
   };
 }
 
+export function rejectOldSaveAchievement(save, id) {
+  const definition = getAchievementDefinition(normalizeId(id));
+  if (!definition) {
+    return save;
+  }
+
+  const archive = normalizeAchievementArchive(save?.achievementArchive);
+  return {
+    ...save,
+    achievementArchive: {
+      ...archive,
+      dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+      rejectedIds: [...new Set([...archive.rejectedIds, definition.id])],
+    },
+  };
+}
+
 export function restoreDismissedOldSaveAchievement(save, id) {
   const definition = getAchievementDefinition(normalizeId(id));
   if (!definition) {
@@ -105,6 +124,7 @@ export function restoreDismissedOldSaveAchievement(save, id) {
     achievementArchive: {
       ...archive,
       dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+      rejectedIds: archive.rejectedIds.filter((rejectedId) => rejectedId !== definition.id),
     },
   };
 }
@@ -127,6 +147,7 @@ export function revokeOldSaveAchievement(save, id) {
       ...archive,
       candidateIds: [...new Set([...archive.candidateIds, definition.id])],
       dismissedIds: archive.dismissedIds.filter((dismissedId) => dismissedId !== definition.id),
+      rejectedIds: archive.rejectedIds.filter((rejectedId) => rejectedId !== definition.id),
     },
   };
 }
@@ -218,6 +239,7 @@ export function normalizeAchievementArchive(value) {
     scanStatus: normalizeScanStatus(archive.scanStatus),
     candidateIds: normalizeIds(archive.candidateIds),
     dismissedIds: normalizeIds(archive.dismissedIds),
+    rejectedIds: normalizeIds(archive.rejectedIds),
     firstNightEnteredAt: normalizeNullableString(archive.firstNightEnteredAt),
     lastSwitchDate: normalizeNullableString(archive.lastSwitchDate),
     switchCount: isNonnegativeInteger(archive.switchCount)
