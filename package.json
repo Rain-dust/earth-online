@@ -6,7 +6,7 @@
     "start": "node server.js",
     "build": "node scripts/build.mjs",
     "preview": "npm run build && node server.js dist",
-    "test": "node --test \"tests/**/*.test.mjs\""
+    "test": "node --test"
   },
   "dependencies": {
     "lucide": "0.468.0",
