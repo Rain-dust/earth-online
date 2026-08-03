@@ -66,14 +66,14 @@ test("recordNightSwitch increments a valid same-day count and preserves fields",
 });
 
 test("recordNightSwitch resets the count on a new day and records the first entry", () => {
-  const now = "2026-07-12T06:30:00+08:00";
+  const now = new Date(2026, 6, 12, 6, 30, 0);
   const archive = {
     lastSwitchDate: "2026-07-11",
     switchCount: 9,
   };
 
   assert.deepEqual(recordNightSwitch(archive, now), {
-    firstNightEnteredAt: now,
+    firstNightEnteredAt: now.toISOString(),
     lastSwitchDate: "2026-07-12",
     switchCount: 1,
   });
