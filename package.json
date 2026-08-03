@@ -4,9 +4,16 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "build": "node scripts/build.mjs",
+    "preview": "npm run build && node server.js dist",
     "test": "node --test \"tests/**/*.test.mjs\""
   },
   "dependencies": {
-    "lucide": "0.468.0"
+    "lucide": "0.468.0",
+    "three": "0.185.1",
+    "three-globe": "2.45.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.8"
   }
 }

@@ -2,7 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const root = __dirname;
+const root = path.resolve(__dirname, process.argv[2] || ".");
 const port = Number(process.env.PORT || 58804);
 
 const types = {
@@ -44,5 +44,5 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(port, () => {
-  console.log(`Earth Online listening on http://localhost:${port}`);
+  console.log(`Earth Online serving ${root} at http://localhost:${port}`);
 });
